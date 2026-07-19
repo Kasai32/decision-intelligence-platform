@@ -1,7 +1,7 @@
 'use client';
 
 import type { CommandCenterSummary, Incident, IntelligenceAnalysis, TimelineEvent } from '@dip/shared';
-import { LogOut, Radar, ScrollText, Sparkles } from 'lucide-react';
+import { FileText, LogOut, Radar, ScrollText, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import { DecisionLog } from '../components/DecisionLog';
 import { IncidentDecisionPanel } from '../components/IncidentDecisionPanel';
 import { IntelligenceAnalysisForm } from '../components/IntelligenceAnalysisForm';
 import { IntelligenceAnalysisPanel } from '../components/IntelligenceAnalysisPanel';
+import { ReportsPanel } from '../components/ReportsPanel';
 import { SeverityBadge } from '../components/SeverityBadge';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -142,6 +143,9 @@ export default function CommandCenterPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
+            <Link href="/knowledge-base">Knowledge base</Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
             <Link href="/simulation">User validation scenarios</Link>
           </Button>
           <Button variant="ghost" size="sm" onClick={signOut}>
@@ -209,6 +213,10 @@ export default function CommandCenterPage() {
                       <Sparkles className="mr-1.5 h-4 w-4" />
                       Decision Intelligence
                     </TabsTrigger>
+                    <TabsTrigger value="reports">
+                      <FileText className="mr-1.5 h-4 w-4" />
+                      Reports
+                    </TabsTrigger>
                   </TabsList>
                   <TabsContent value="command-center">
                     <IncidentDecisionPanel
@@ -227,6 +235,13 @@ export default function CommandCenterPage() {
                       onCreated={(analysis) =>
                         setAnalyses((current) => [analysis, ...(current ?? [])])
                       }
+                    />
+                  </TabsContent>
+                  <TabsContent value="reports">
+                    <ReportsPanel
+                      incidentId={selectedIncident.id}
+                      incidentStatus={selectedIncident.status}
+                      timeline={timeline ?? []}
                     />
                   </TabsContent>
                 </Tabs>

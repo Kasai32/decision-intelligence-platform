@@ -500,3 +500,19 @@ infra/          — Docker, CI/CD-adjacent infra config
 **Open item:** the `POST /incidents/:id/analyze` vs. `GET /incidents/:id/analyses` response-shape inconsistency described above should be fixed in `apps/api` (flatten the POST response to match the persisted shape) the next time that module is touched — tracked in `memory/context.md`.
 
 ---
+
+## 2026-07-20 — Reporting frontend surface: Executive Briefs, Decision Reports, Lessons Learned, Knowledge Base
+
+**Context:** Second of three frontend surfaces the user asked to close (Decision Intelligence done in the prior entry). Phase 5's Reporting backend (ADR-0011) — Executive Briefs, per-decision Decision Reports, Lessons Learned, and Knowledge Base search — was fully built and tested but had no `apps/web` surface at all.
+
+**Decision:** Added a fifth Command Center tab, "Reports," composing three self-contained panels (`ExecutiveBriefsPanel`, `DecisionReportsPanel`, `LessonsLearnedPanel` — each fetches its own list on mount rather than growing `page.tsx`'s state, a deliberate departure from the Decision Intelligence tab's page-owns-the-fetch pattern, justified because these three have independent lifecycles and one of them needs a derived list, not a single fetch), plus a standalone `/knowledge-base` search page (no results shown before a search is run, to avoid dumping the tenant's full lesson history by default) linked from the Command Center header. `packages/shared` gained additive-only types (`ExecutiveBrief`, `DecisionReport`, `LessonLearned`, plus their nested JSON-field shapes) mirroring the Prisma models — no `apps/api` change.
+
+**No new "list decisions for an incident" endpoint:** `DecisionReportsPanel` needs a decision ID + question per decision to offer a "Generate report" button, but no such list endpoint exists (`GET /incidents/:id/command-center` only returns *open* decisions + the *last* one). Rather than adding an endpoint for a frontend-only task, `ReportsPanel` derives the full decision list from the incident's timeline (already fetched for the Decision Log tab): every `Decision` is opened via a `DECISION_OPENED` `TimelineEvent` carrying `decisionId`, and its `description` field (`Decision opened: "<question>"`) is parsed back into the question text. This is read-only derivation from data the backend already guarantees is complete (ADR-0006's append-only timeline), not a new assumption.
+
+**Lessons Learned respects the CLOSED gate, doesn't hide it:** `LessonsLearnedPanel` shows the existing lessons and a plain-text explanation ("current status: X") instead of a form when the incident isn't `CLOSED`, matching `LessonsLearnedService`'s server-side rejection rather than silently disabling a submit button.
+
+**Rationale:** Same as the Decision Intelligence surface — extend ADR-0014's existing design system, never fabricate data the backend doesn't provide, and prefer deriving from real data already in hand over adding new backend surface area for a frontend-only task.
+
+**Status:** Accepted. Implemented (`apps/web/src/components/{ExecutiveBriefsPanel,DecisionReportsPanel,LessonsLearnedPanel,ReportsPanel}.tsx`, `app/knowledge-base/page.tsx`, `app/page.tsx` gained the fifth tab + a header link), tested (11 new `apps/web` tests — empty states, generate/submit flows, the CLOSED gate, and the timeline-to-decision-list derivation), and verified: `lint`, `build`, and `test` all pass across all three workspaces (175 `apps/api` + 33 `apps/web` + 1 `packages/shared` = 209 tests, all green).
+
+---

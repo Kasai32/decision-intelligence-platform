@@ -85,6 +85,8 @@ External integrations (ServiceNow, Jira, Slack, Teams, AWS/Azure/GCP, Splunk, Da
 
 **Decision Intelligence Engine frontend surface (2026-07-20, frontend-only, see DECISION_LOG.md).** The Command Center gained a fourth tab, "Decision Intelligence," rendering Phase 4's `IntelligenceAnalysisPanel` (read-only history — the four confidence dimensions always shown as separate bars via `ConfidenceMeter`, never merged; `missingInformation` always surfaced when non-empty per Principle 3) and `IntelligenceAnalysisForm` (submits the qualitative half of the AI Output Contract to `POST /incidents/:id/analyze`). `packages/shared` gained additive-only types mirroring `AIOutputContractDto`/the Prisma model. Building this surfaced a real, still-open `apps/api` inconsistency — `POST /incidents/:id/analyze` nests the confidence dimensions under `confidenceDimensions`, `GET /incidents/:id/analyses` returns them as flat columns — worked around client-side (normalized on submit) rather than fixed, since this was a frontend-only task; see `memory/context.md`.
 
+**Reporting frontend surface (2026-07-20, frontend-only, see DECISION_LOG.md).** The Command Center gained a fifth tab, "Reports," composing three self-contained Phase 5 panels: `ExecutiveBriefsPanel`, `DecisionReportsPanel` (needs a decision list per incident, which no `apps/api` endpoint provides — derives it from the `DECISION_OPENED` events already in the incident's timeline instead), and `LessonsLearnedPanel` (shows the CLOSED-incident gate explicitly rather than hiding the form). A standalone `/knowledge-base` page renders Phase 5's tenant-wide search. `packages/shared` gained additive-only types mirroring the `ExecutiveBrief`/`DecisionReport`/`LessonLearned` Prisma models.
+
 ## 3. Monorepo layout
 
 ```
