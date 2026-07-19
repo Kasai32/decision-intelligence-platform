@@ -6,8 +6,8 @@ import {
   IncidentSeverity,
   IncidentType,
   IntegrationKey,
+  IntelligenceAnalysis,
 } from '@prisma/client';
-import { AIOutputContractDto } from '../decision-intelligence/dto/ai-output-contract.dto';
 import { SubmitIntelligenceAnalysisDto } from '../decision-intelligence/dto/submit-intelligence-analysis.dto';
 import { DecisionIntelligenceEngineService } from '../decision-intelligence/decision-intelligence-engine.service';
 import { DecisionsService } from '../decisions/decisions.service';
@@ -138,7 +138,7 @@ export class SimulationScenarioService {
     await this.tripCircuitBreaker(tenantId, incident.id);
 
     const analysisDto: SubmitIntelligenceAnalysisDto = this.buildCloudOutageAnalysisDto();
-    let analysis: AIOutputContractDto | null = null;
+    let analysis: IntelligenceAnalysis | null = null;
     try {
       analysis = await this.decisionIntelligence.analyze(
         tenantId,

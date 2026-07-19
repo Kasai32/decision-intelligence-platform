@@ -29,7 +29,12 @@ export class DecisionIntelligenceEngineService {
    * Evidence rows, assembles the full AI Output Contract by combining them
    * with the caller-supplied qualitative fields, validates the assembled
    * object against AIOutputContractDto, persists it, and records a
-   * TimelineEvent. See ADR-0010.
+   * TimelineEvent. See ADR-0010. Returns the persisted row (the same flat
+   * shape `list()` below returns), not the `AIOutputContractDto` used only
+   * to validate the assembled contract before writing it — the two used to
+   * disagree (dimensions nested here, flat in `list()`), a real
+   * inconsistency found while building the `apps/web` Decision Intelligence
+   * tab (see DECISION_LOG.md, 2026-07-20).
    */
   async analyze(
     tenantId: string,
@@ -37,7 +42,7 @@ export class DecisionIntelligenceEngineService {
     submittedByUserId: string,
     dto: SubmitIntelligenceAnalysisDto,
     now: Date = new Date(),
-  ): Promise<AIOutputContractDto> {
+  ): Promise<IntelligenceAnalysis> {
     const incident = await this.getIncidentOrThrow(tenantId, incidentId);
     const evidence = await this.prisma.evidence.findMany({ where: { tenantId, incidentId } });
 
@@ -106,7 +111,7 @@ export class DecisionIntelligenceEngineService {
       },
     });
 
-    return assembled;
+    return created;
   }
 
   async list(tenantId: string, incidentId: string): Promise<IntelligenceAnalysis[]> {

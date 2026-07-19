@@ -58,7 +58,7 @@ describe('DecisionIntelligenceEngineService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('computes all four dimensions from real evidence and never merges them', async () => {
+    it('computes all four dimensions from real evidence and never merges them, returning the persisted row (same flat shape as list())', async () => {
       prisma.incident.findFirst.mockResolvedValue({
         id: 'i1',
         type: IncidentType.CLOUD_OUTAGE,
@@ -71,27 +71,24 @@ describe('DecisionIntelligenceEngineService', () => {
           createdAt: new Date('2026-07-19T11:58:00.000Z'), // 2 min before NOW
         },
       ]);
-      prisma.intelligenceAnalysis.create.mockResolvedValue({ id: 'analysis-1' });
+      prisma.intelligenceAnalysis.create.mockImplementation(({ data }) => ({ id: 'analysis-1', ...data }));
       prisma.timelineEvent.create.mockResolvedValue({});
 
       const result = await service.analyze('t1', 'i1', 'u1', validSubmission(), NOW);
 
       // CLOUD_OUTAGE requires [MONITORING, CLOUD_PROVIDER]; only MONITORING present -> 50
-      expect(result.confidenceDimensions.evidenceCompleteness).toBe(50);
+      expect(result.evidenceCompleteness).toBe(50);
       // Single MONITORING source -> reliability = 90
-      expect(result.confidenceDimensions.sourceReliability).toBe(90);
+      expect(result.sourceReliability).toBe(90);
       // 2 minutes old, HIGH severity (k=2) -> 100 - 2*2 = 96
-      expect(result.confidenceDimensions.dataFreshness).toBe(96);
+      expect(result.dataFreshness).toBe(96);
       // 1 evidence, 1 unique category, 0 conflicts -> 15 + 7 = 22
-      expect(result.confidenceDimensions.aiCertainty).toBe(22);
+      expect(result.aiCertainty).toBe(22);
 
-      // All four are present as distinct keys, never merged into a single number.
-      expect(Object.keys(result.confidenceDimensions).sort()).toEqual([
-        'aiCertainty',
-        'dataFreshness',
-        'evidenceCompleteness',
-        'sourceReliability',
-      ]);
+      // All four are present as distinct top-level fields, never merged into a single number
+      // or nested under a `confidenceDimensions` object — that used to disagree with what
+      // list() returns; see DECISION_LOG.md, 2026-07-20.
+      expect(result).not.toHaveProperty('confidenceDimensions');
     });
 
     it('computes missingInformation from the real evidence gap, never supplied by the caller', async () => {
@@ -101,7 +98,7 @@ describe('DecisionIntelligenceEngineService', () => {
         severity: IncidentSeverity.MEDIUM,
       });
       prisma.evidence.findMany.mockResolvedValue([]); // no evidence at all
-      prisma.intelligenceAnalysis.create.mockResolvedValue({ id: 'analysis-1' });
+      prisma.intelligenceAnalysis.create.mockImplementation(({ data }) => ({ id: 'analysis-1', ...data }));
       prisma.timelineEvent.create.mockResolvedValue({});
 
       const result = await service.analyze('t1', 'i1', 'u1', validSubmission(), NOW);

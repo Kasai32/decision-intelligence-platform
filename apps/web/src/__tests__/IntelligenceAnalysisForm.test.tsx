@@ -40,7 +40,7 @@ describe('IntelligenceAnalysisForm (ADR-0010 — human-supplied qualitative fiel
     (apiClient.post as jest.Mock).mockReset();
   });
 
-  it('submits the qualitative fields to POST /incidents/:id/analyze and normalizes the nested confidenceDimensions response', async () => {
+  it('submits the qualitative fields to POST /incidents/:id/analyze and passes the flat persisted response straight through', async () => {
     (apiClient.post as jest.Mock).mockResolvedValue({
       id: 'analysis-1',
       tenantId: 't1',
@@ -56,12 +56,10 @@ describe('IntelligenceAnalysisForm (ADR-0010 — human-supplied qualitative fiel
       executiveSummary: 'Recommend immediate rollback.',
       evidenceUsed: ['ev-1'],
       missingInformation: [],
-      confidenceDimensions: {
-        evidenceCompleteness: 60,
-        sourceReliability: 80,
-        dataFreshness: 90,
-        aiCertainty: 55,
-      },
+      evidenceCompleteness: 60,
+      sourceReliability: 80,
+      dataFreshness: 90,
+      aiCertainty: 55,
       submittedByUserId: 'user-1',
       createdAt: '2026-07-19T12:00:00.000Z',
     });
@@ -96,8 +94,6 @@ describe('IntelligenceAnalysisForm (ADR-0010 — human-supplied qualitative fiel
         }),
       );
     });
-    // The nested shape from the API must not leak into the normalized caller-facing object.
-    expect(onCreated.mock.calls[0][0].confidenceDimensions).toBeUndefined();
   });
 
   it('shows the backend error message and does not call onCreated when submission fails', async () => {

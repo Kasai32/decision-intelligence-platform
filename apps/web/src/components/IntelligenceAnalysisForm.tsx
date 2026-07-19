@@ -39,33 +39,6 @@ function parseCommaList(text: string): string[] {
     .filter((item) => item.length > 0);
 }
 
-/**
- * Raw POST /incidents/:id/analyze response (AI Output Contract shape,
- * `confidenceDimensions` nested) normalized to the flat, persisted shape
- * GET /incidents/:id/analyses returns — see the comment on `IntelligenceAnalysis`
- * in packages/shared/src/types.ts for why the two endpoints disagree.
- */
-interface AnalyzeResponse extends SubmitIntelligenceAnalysisInput {
-  id: string;
-  tenantId: string;
-  incidentId: string;
-  evidenceUsed: string[];
-  missingInformation: string[];
-  confidenceDimensions: {
-    evidenceCompleteness: number;
-    sourceReliability: number;
-    dataFreshness: number;
-    aiCertainty: number;
-  };
-  submittedByUserId: string;
-  createdAt: string;
-}
-
-function normalize(response: AnalyzeResponse): IntelligenceAnalysis {
-  const { confidenceDimensions, ...rest } = response;
-  return { ...rest, ...confidenceDimensions };
-}
-
 export interface IntelligenceAnalysisFormProps {
   incidentId: string;
   onCreated: (analysis: IntelligenceAnalysis) => void;
@@ -124,8 +97,8 @@ export function IntelligenceAnalysisForm({ incidentId, onCreated }: Intelligence
 
     setSubmitting(true);
     try {
-      const response = await apiClient.post<AnalyzeResponse>(`/incidents/${incidentId}/analyze`, body);
-      onCreated(normalize(response));
+      const analysis = await apiClient.post<IntelligenceAnalysis>(`/incidents/${incidentId}/analyze`, body);
+      onCreated(analysis);
       setSituationSummary('');
       setImpactDescription('');
       setAffectedSystems('');

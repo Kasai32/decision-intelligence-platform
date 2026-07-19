@@ -131,13 +131,13 @@ export interface SubmitIntelligenceAnalysisInput {
 }
 
 /**
- * The persisted shape returned by GET /incidents/:id/analyses — mirrors the
- * Prisma `IntelligenceAnalysis` model directly, so the four confidence
- * dimensions are flat columns here (`evidenceCompleteness` etc.), not a
- * nested `confidenceDimensions` object. POST /incidents/:id/analyze returns
- * the AI Output Contract shape instead (dimensions nested under
- * `confidenceDimensions`) — apps/web's api-client normalizes that response
- * to this same flat shape so callers only ever deal with one type.
+ * The persisted shape both POST /incidents/:id/analyze and
+ * GET /incidents/:id/analyses return — mirrors the Prisma
+ * `IntelligenceAnalysis` model directly, so the four confidence dimensions
+ * are flat columns here (`evidenceCompleteness` etc.), not a nested
+ * `confidenceDimensions` object. (The two endpoints used to disagree on
+ * this — POST returned the nested AI Output Contract shape — fixed
+ * 2026-07-20, see DECISION_LOG.md.)
  */
 export interface IntelligenceAnalysis extends SubmitIntelligenceAnalysisInput {
   id: string;
