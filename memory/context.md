@@ -8,6 +8,8 @@ Last updated: 2026-07-19.
 
 **Post-roadmap: user validation test-session prep is complete** (see [ADR-0013](../docs/adr/0013-simulation-scenario-architecture.md)). `SimulationScenarioService` (`apps/api/src/simulation`) lets a tenant ADMIN instantly instantiate two disposable, `[SIMULATION]`-prefixed test scenarios via `POST /simulation/trigger` — a ransomware incident with two simultaneously open decisions, and a cloud-outage incident with genuinely incomplete evidence (it actually trips the tenant's Datadog integration circuit breaker). Building this surfaced and fixed a real pre-existing gap: the Command Center only ever returned one `openDecision`, silently hiding any second simultaneously open decision — amended in-place to `openDecisions: Decision[]` (ADR-0009 amendment, documented in ADR-0013). `apps/web` gained a matching `/simulation` facilitator panel. 175 tests in `apps/api`, 11 in `apps/web`.
 
+**Post-roadmap: frontend design system (user-named "Phase 4: Command Center UI & Decision Log UI") is complete** (see [ADR-0014](../docs/adr/0014-frontend-design-system.md)). The Dry Run validated the backend but the user judged the unstyled frontend unacceptable for an enterprise demo and explicitly halted all backend work to focus on it. `apps/web` now runs Tailwind CSS v4 + hand-authored shadcn-style primitives (`src/components/ui/`) in a single dark "command center" theme (no toggle), with severity color-coding (`src/lib/severity.ts`) applied consistently across the incident list and decision cards, a live ticking `CountdownTimer` on every open decision (deadline computed client-side from a deterministic, disclosed per-severity SLA table — `src/lib/sla-policy.ts` — not stored, not fabricated, not a backend change), and a new Decision Log tab rendering the existing timeline feed. Zero `apps/api` behavior changed; `packages/shared` gained one additive `TimelineEvent` type. 175 tests in `apps/api` (unchanged), 16 in `apps/web` (was 11).
+
 **What remains is filling in real-world specifics this environment cannot provide (see constraints below), not new phases.**
 
 ## Operating mode
@@ -41,6 +43,13 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 - `POST /simulation/trigger` is `@Roles(Role.ADMIN)`-gated; `apps/web`'s `/simulation` page has no client-side role check (the backend 403 is the only enforcement, consistent with every other admin-only action in this codebase).
 - The referenced `incident-commander-validation-guide.md` does not exist in this repository (checked, not on disk) — as with earlier gaps of this kind (`PREREQUIS.md`, Phase 3), the user's chat message contained enough of a spec to proceed; the discrepancy is noted in ADR-0013 rather than blocking work.
 
+## Decisions made in the frontend design system phase (see DECISION_LOG.md / ADR-0014 for full rationale)
+
+- Tailwind v4 + hand-authored shadcn-style primitives, not the interactive shadcn CLI (this environment can't drive it non-interactively) and not Tremor (better fit for a future charts/metrics dashboard, not this composition-of-cards/badges surface).
+- Dark theme only, no light/dark toggle — the product's identity, not a preference; avoids FOUC/hydration-mismatch risk entirely since there's exactly one theme.
+- The SLA countdown table (CRITICAL 15m / HIGH 1h / MEDIUM 4h / LOW 24h) is a **new, disclosed UI-only assumption** this task introduced — not a real product/ops-specified policy. Flagged in ADR-0014 and below, not silently presented as authoritative.
+- `Decision` still has no deadline field and none was added — the countdown is computed, never stored, specifically to honor "stop all backend work."
+
 ## Open questions for later work
 
 - Hosting/deployment target (needed before CI/CD can deploy anything, not just build/test it).
@@ -50,5 +59,6 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 - Real integration credentials per Phase 6 system, see constraint above — the seam (`NetworkSimulator`) is ready.
 - Circuit-breaker state is in-process memory only — would need a shared store (Redis) for a multi-replica deployment (see ADR-0012, explicitly out of scope for this single-instance MVP).
 - Frontend refresh-token handling (access token expiry currently just breaks API calls with no silent refresh) — worth hardening before real usage.
-- No `apps/web` UI exists yet for Decision Intelligence Engine (Phase 4), Reporting (Phase 5), or Integrations management (Phase 6) — only backend + tests. The Executive Command Center (Phase 3), login, and the `/simulation` facilitator panel (ADR-0013) are the only frontend surfaces built so far.
+- No `apps/web` UI exists yet for Decision Intelligence Engine (Phase 4 analyses), Reporting (Phase 5), or Integrations management (Phase 6) — only backend + tests. The Executive Command Center + Decision Log (ADR-0014), login, and the `/simulation` facilitator panel (ADR-0013) are the only frontend surfaces built so far.
+- The SLA countdown policy (ADR-0014) needs a real product decision: configurable per-tenant response windows stored server-side (admin-editable), replacing the current hardcoded frontend table.
 - Knowledge Base search is keyword/ILIKE-based; revisit with semantic/embedding search if Lessons Learned volume grows large (see ADR-0011).

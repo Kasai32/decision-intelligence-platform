@@ -48,3 +48,35 @@ export interface AuthTokens {
 
 /** See ADR-0013 — user validation test scenarios. */
 export type SimulationScenario = 'CYBER_RANSOMWARE' | 'CLOUD_OUTAGE_PARTIAL_EVIDENCE';
+
+export type TimelineEventType =
+  | 'INCIDENT_CREATED'
+  | 'INCIDENT_STATUS_CHANGED'
+  | 'DECISION_OPENED'
+  | 'DECISION_DECIDED'
+  | 'DECISION_CANCELLED'
+  | 'EVIDENCE_ADDED'
+  | 'ACTION_CREATED'
+  | 'ACTION_STATUS_CHANGED'
+  | 'INTELLIGENCE_ANALYSIS_GENERATED'
+  | 'EXECUTIVE_BRIEF_GENERATED'
+  | 'DECISION_REPORT_GENERATED'
+  | 'LESSON_LEARNED_CREATED'
+  | 'INTEGRATION_BLOCKED';
+
+/**
+ * Shape returned by GET /incidents/:id/timeline — the immutable audit trail
+ * (see ADR-0006). Type-only addition for the Decision Log UI (ADR-0014); no
+ * backend change.
+ */
+export interface TimelineEvent {
+  id: string;
+  tenantId: string;
+  incidentId: string;
+  decisionId: string | null;
+  type: TimelineEventType;
+  description: string;
+  actorUserId: string | null;
+  metadata: Record<string, unknown> | null;
+  occurredAt: string;
+}

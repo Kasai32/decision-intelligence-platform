@@ -26,3 +26,4 @@ An ADR captures a single significant, hard-to-reverse architectural decision: th
 | [0011](0011-phase5-reporting-architecture.md)            | Phase 5 Reporting: immutable generated artifacts, factual auto-assembly              | Accepted |
 | [0012](0012-integration-resilience-and-tenant-config.md) | Integration resilience engine + per-tenant encrypted configuration                   | Accepted |
 | [0013](0013-simulation-scenario-architecture.md)         | User validation test scenarios: SimulationScenarioService (amends ADR-0009)          | Accepted |
+| [0014](0014-frontend-design-system.md)                   | Frontend design system: Tailwind v4 + CVA/Radix primitives, dark theme, SLA countdowns | Accepted |

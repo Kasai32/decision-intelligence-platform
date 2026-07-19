@@ -1,11 +1,14 @@
 'use client';
 
 import type { Incident, SimulationScenario } from '@dip/shared';
+import { Flame, Radar, ShieldOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { apiClient, ApiError } from '../../lib/api-client';
 import { getAccessToken } from '../../lib/auth-storage';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
 
 interface SimulationTriggerResult {
   scenario: SimulationScenario;
@@ -16,6 +19,7 @@ const SCENARIOS: Array<{
   scenario: SimulationScenario;
   label: string;
   description: string;
+  icon: typeof Flame;
 }> = [
   {
     scenario: 'CYBER_RANSOMWARE',
@@ -24,6 +28,7 @@ const SCENARIOS: Array<{
       'Creates a CRITICAL security-breach incident with two simultaneously open decisions ' +
       '(isolate the network vs. communicate publicly), left undecided — exercises the ' +
       'multi-decision Command Center panel.',
+    icon: Flame,
   },
   {
     scenario: 'CLOUD_OUTAGE_PARTIAL_EVIDENCE',
@@ -31,6 +36,7 @@ const SCENARIOS: Array<{
     description:
       'Creates a HIGH cloud-outage incident with only partial evidence attached and trips the ' +
       "tenant's Datadog integration circuit breaker — exercises the \"not enough evidence\" state.",
+    icon: ShieldOff,
   },
 ];
 
@@ -47,11 +53,18 @@ export default function SimulationPage() {
 
   if (!getAccessToken()) {
     return (
-      <main>
-        <h1>User validation test scenarios</h1>
-        <p>
-          You need to sign in as a tenant admin to trigger scenarios. <Link href="/login">Sign in</Link>
-        </p>
+      <main className="flex min-h-screen items-center justify-center p-6">
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle>User validation test scenarios</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">You need to sign in as a tenant admin to trigger scenarios.</p>
+            <Button asChild>
+              <Link href="/login">Sign in</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </main>
     );
   }
@@ -71,28 +84,49 @@ export default function SimulationPage() {
   }
 
   return (
-    <main>
-      <h1>User validation test scenarios</h1>
-      <p>
-        Each button below instantly creates a disposable, tenant-scoped test incident (titled
-        with a <code>[SIMULATION]</code> prefix) in the Command Center. ADMIN role required.
+    <main className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
+      <div className="flex items-center gap-2">
+        <Radar className="h-5 w-5 text-primary" />
+        <h1 className="text-lg font-semibold tracking-tight">User validation test scenarios</h1>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Each button below instantly creates a disposable, tenant-scoped test incident (titled with a{' '}
+        <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">[SIMULATION]</code> prefix) in the
+        Command Center. ADMIN role required.
       </p>
-      <ul aria-label="Simulation scenarios">
-        {SCENARIOS.map(({ scenario, label, description }) => (
+
+      <ul aria-label="Simulation scenarios" className="grid gap-4 sm:grid-cols-2">
+        {SCENARIOS.map(({ scenario, label, description, icon: Icon }) => (
           <li key={scenario}>
-            <h2>{label}</h2>
-            <p>{description}</p>
-            <button
-              type="button"
-              onClick={() => trigger(scenario)}
-              disabled={pendingScenario !== null}
-            >
-              {pendingScenario === scenario ? 'Triggering…' : `Trigger ${label}`}
-            </button>
+            <Card className="flex h-full flex-col">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Icon className="h-4 w-4 text-critical" />
+                  {label}
+                </CardTitle>
+                <CardDescription>{description}</CardDescription>
+              </CardHeader>
+              <CardFooter className="mt-auto">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="w-full"
+                  onClick={() => trigger(scenario)}
+                  disabled={pendingScenario !== null}
+                >
+                  {pendingScenario === scenario ? 'Triggering…' : `Trigger ${label}`}
+                </Button>
+              </CardFooter>
+            </Card>
           </li>
         ))}
       </ul>
-      {error && <p role="alert">{error}</p>}
+
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
     </main>
   );
 }

@@ -1,0 +1,95 @@
+@import 'tailwindcss';
+
+/*
+ * Dark-only "command center" theme (see ADR-0014). No .dark class, no
+ * prefers-color-scheme branch, no toggle — this product's identity is dark,
+ * not a preference. Every token below is a single source of truth consumed
+ * by the CVA-based primitives in src/components/ui/.
+ */
+@theme {
+  --color-background: #05070d;
+  --color-foreground: #e2e8f0;
+
+  --color-card: #0d121c;
+  --color-card-foreground: #e2e8f0;
+
+  --color-popover: #0d121c;
+  --color-popover-foreground: #e2e8f0;
+
+  --color-border: #1e293b;
+  --color-input: #1e293b;
+  --color-ring: #38bdf8;
+
+  --color-primary: #38bdf8;
+  --color-primary-foreground: #04121b;
+
+  --color-secondary: #1e293b;
+  --color-secondary-foreground: #e2e8f0;
+
+  --color-muted: #131a26;
+  --color-muted-foreground: #94a3b8;
+
+  --color-accent: #1e293b;
+  --color-accent-foreground: #e2e8f0;
+
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #fef2f2;
+
+  --color-success: #22c55e;
+  --color-success-foreground: #04120a;
+
+  /* Severity color coding (ADR-0014) — used consistently for incident
+     severity everywhere: list borders, badges, decision cards. */
+  --color-critical: #ef4444;
+  --color-critical-foreground: #fef2f2;
+  --color-high: #f97316;
+  --color-high-foreground: #431407;
+  --color-medium: #eab308;
+  --color-medium-foreground: #422006;
+  --color-low: #3b82f6;
+  --color-low-foreground: #eff6ff;
+
+  /* Countdown-timer escalation states (ADR-0014's disclosed SLA policy). */
+  --color-countdown-calm: #22c55e;
+  --color-countdown-warning: #f59e0b;
+  --color-countdown-danger: #ef4444;
+  --color-countdown-overdue: #dc2626;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:
+    ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  --radius: 0.5rem;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    border-color: var(--color-border);
+  }
+}
+
+@keyframes pulse-danger {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.animate-pulse-danger {
+  animation: pulse-danger 1.2s ease-in-out infinite;
+}

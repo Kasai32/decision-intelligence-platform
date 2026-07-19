@@ -1,8 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import CommandCenterPage from '../app/page';
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
 jest.mock('../lib/auth-storage', () => ({
   getAccessToken: jest.fn(() => null),
+  clearTokens: jest.fn(),
 }));
 
 describe('CommandCenterPage', () => {
