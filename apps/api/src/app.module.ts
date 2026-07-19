@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ActionsModule } from './actions/actions.module';
 import { AuthModule } from './auth/auth.module';
+import { DecisionIntelligenceModule } from './decision-intelligence/decision-intelligence.module';
 import { DecisionsModule } from './decisions/decisions.module';
 import { EvidenceModule } from './evidence/evidence.module';
 import { HealthModule } from './health/health.module';
@@ -21,6 +22,7 @@ import { TenantsModule } from './tenants/tenants.module';
     DecisionsModule,
     EvidenceModule,
     ActionsModule,
+    DecisionIntelligenceModule,
     HealthModule,
   ],
 })

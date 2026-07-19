@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Status: Living document. Reflects Phase 1 (Foundation), Phase 2 (Platform core), and Phase 3 (Executive Command Center / Incident & Decision domain model), all complete; will be extended as each subsequent phase in [PREREQUIS.md](../../PREREQUIS.md) lands. Stack decisions here are recorded with full rationale in [DECISION_LOG.md](../../DECISION_LOG.md) and, where architecturally significant, in an [ADR](../adr/README.md).
+Status: Living document. Reflects Phase 1 (Foundation), Phase 2 (Platform core), Phase 3 (Executive Command Center / Incident & Decision domain model), and Phase 4 (Decision Intelligence Engine — multidimensional confidence model), all complete; will be extended as each subsequent phase in [PREREQUIS.md](../../PREREQUIS.md) lands. Stack decisions here are recorded with full rationale in [DECISION_LOG.md](../../DECISION_LOG.md) and, where architecturally significant, in an [ADR](../adr/README.md).
 
 ## 1. System purpose
 
@@ -42,7 +42,8 @@ Everything below is designed so Phases 2–6 are additive (new modules/packages)
                          │  ── Actions module        │  <- Phase 3 (done)
                          │  ── Integrations registry │  <- Phase 3 mocks (done, ADR-0008),
                          │     (10 mock providers)   │     Phase 6 fills in real ones
-                         │  ── Decision Intel module │  <- Phase 4
+                         │  ── Decision Intelligence │  <- Phase 4 (done — ADR-0010)
+                         │     Engine (4-dim scoring)│     confidence model, AI Output Contract
                          │  ── Reporting module      │  <- Phase 5
                          └────────────┬─────────────┘
                                       │ Prisma
@@ -52,14 +53,15 @@ Everything below is designed so Phases 2–6 are additive (new modules/packages)
                          │  Membership / RefreshToken│
                          │  Incident / Decision /    │
                          │  Evidence / TimelineEvent │
-                         │  / Action                 │
+                         │  / Action /               │
+                         │  IntelligenceAnalysis     │
                          └───────────────────────────┘
 
            packages/shared  — TS types/DTOs/contracts shared by web + api
                               (now includes Incident/Decision/CommandCenterSummary)
 ```
 
-Full endpoint reference: [docs/api/README.md](../api/README.md). Design rationale: ADR-0003 (Prisma), ADR-0004 (shared-schema multi-tenancy), ADR-0005 (self-hosted JWT auth), ADR-0006 (Incident/Decision/Evidence/TimelineEvent/Action domain model), ADR-0007 (state transition guards + Principle 1), ADR-0008 (Phase 6 integration mocks), ADR-0009 (Command Center no-blank-state contract).
+Full endpoint reference: [docs/api/README.md](../api/README.md). Design rationale: ADR-0003 (Prisma), ADR-0004 (shared-schema multi-tenancy), ADR-0005 (self-hosted JWT auth), ADR-0006 (Incident/Decision/Evidence/TimelineEvent/Action domain model), ADR-0007 (state transition guards + Principle 1), ADR-0008 (Phase 6 integration mocks), ADR-0009 (Command Center no-blank-state contract), ADR-0010 (Decision Intelligence Engine confidence model).
 
 External integrations (Phase 6: ServiceNow, Jira, Slack, Teams, AWS/Azure/GCP, Splunk, Datadog, Microsoft Sentinel) are, as of Phase 3, ten `MockIntegrationProvider` instances behind `IntegrationsRegistryService` (see ADR-0008) — `IncidentsService`/`DecisionsService` already broadcast to all of them on incident-created/decision-decided; Phase 6 swaps mocks for real implementations one at a time without touching either service.
 
@@ -111,10 +113,11 @@ infra/
 - **Principle 1 — the AI decides nothing alone:** `DecisionsService.decide()` is the only code path that can set a `Decision` to `DECIDED`, and it hard-requires a non-empty `humanDecision` plus a `decidedByUserId` that resolves to a real member of the tenant. See ADR-0007.
 - **Integration isolation:** each Phase 6 integration is a `MockIntegrationProvider` (real implementations later) behind `IntegrationsRegistryService`; a provider that throws is caught and logged per-provider, never allowed to fail the triggering request. See ADR-0008.
 - **No blank state:** the Executive Command Center's "what to show" logic is computed once, server-side (`GET /incidents/:id/command-center`), not reimplemented per frontend surface. See ADR-0009.
+- **No black-box confidence:** the Decision Intelligence Engine reports four independent, auditable dimensions (`evidenceCompleteness`, `sourceReliability`, `dataFreshness`, `aiCertainty`) — never merged into a single score, and never accepted from a client. Each is a deterministic function of real `Evidence` rows; `aiCertainty` is explicitly documented as a heuristic, not a trained-model output, since no model or historical corpus exists. See ADR-0010.
 
 ## 6. What's not built yet
 
-No Decision Intelligence Engine (Recommendation Engine, Confidence Model, Business Impact Analysis — Phase 4), no reporting (Phase 5), no real external integrations (Phase 6 — the mocks exist, see above). Phases 1–3 are complete: Foundation, Platform core (Auth/RBAC/Tenant Management), and the Incident/Decision domain model with its guards and the Command Center UI contract. See [PREREQUIS.md](../../PREREQUIS.md) for what Phases 4–6 add, and `memory/context.md` for what's explicitly blocked pending user input (Phase 4 algorithm design, Phase 6 credentials).
+No reporting (Executive Brief Generator, Decision Reports, Lessons Learned, Knowledge Base — Phase 5), no real external integrations (Phase 6 — the mocks exist, see above). Phases 1–4 are complete: Foundation, Platform core, the Incident/Decision domain model with its guards and Command Center, and the Decision Intelligence Engine's confidence model. The Decision Intelligence Engine does not itself generate the qualitative analysis (situation summary, recommended decision, risks, etc.) — no LLM integration exists in this environment; those fields are supplied by whoever calls `POST /incidents/:id/analyze` (today: a human analyst) and validated, not fabricated by an algorithm. See [PREREQUIS.md](../../PREREQUIS.md) for what Phases 5–6 add, and `memory/context.md` for what's explicitly blocked pending user input.
 
 ## 7. Change process
 

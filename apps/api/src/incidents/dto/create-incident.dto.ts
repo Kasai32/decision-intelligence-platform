@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IncidentSeverity } from '@prisma/client';
+import { IncidentSeverity, IncidentType } from '@prisma/client';
 import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateIncidentDto {
@@ -18,4 +18,13 @@ export class CreateIncidentDto {
   @IsOptional()
   @IsEnum(IncidentSeverity)
   severity?: IncidentSeverity;
+
+  @ApiPropertyOptional({
+    enum: IncidentType,
+    default: IncidentType.OTHER,
+    description: 'Drives Phase 4 evidenceCompleteness scoring — see ADR-0010.',
+  })
+  @IsOptional()
+  @IsEnum(IncidentType)
+  type?: IncidentType;
 }

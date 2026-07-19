@@ -2,7 +2,7 @@
 
 Enterprise decision intelligence and incident command platform. Tracks incidents and decisions, generates evidence-backed recommendations, and produces executive-level reporting, integrating with the tools enterprises already run.
 
-Status: **Phase 3 — Executive Command Center / Incident & Decision domain model** complete (see [PREREQUIS.md](PREREQUIS.md) for the full roadmap). Phases 1 (Foundation), 2 (Authentication, RBAC, Tenant Management, API Gateway, Core Database), and 3 (Incident/Decision/Evidence/TimelineEvent/Action domain model, state transition guards, Executive Command Center UI) are done and verified end-to-end — see [DECISION_LOG.md](DECISION_LOG.md). No Decision Intelligence Engine, reporting, or real external integrations yet (Phases 4–6) — Phase 6's integrations exist only as mocked interfaces (ADR-0008).
+Status: **Phase 4 — Decision Intelligence Engine** complete (see [PREREQUIS.md](PREREQUIS.md) for the full roadmap). Phases 1 (Foundation), 2 (Auth/RBAC/Tenant Management), 3 (Incident/Decision domain model, state transition guards, Executive Command Center), and 4 (multidimensional confidence model — evidence completeness, source reliability, data freshness, AI certainty, never merged into one score) are done and verified end-to-end — see [DECISION_LOG.md](DECISION_LOG.md). No reporting or real external integrations yet (Phases 5–6) — Phase 6's integrations exist only as mocked interfaces (ADR-0008).
 
 ## Repository map
 

@@ -23,11 +23,12 @@ model Tenant {
   updatedAt DateTime     @updatedAt
   members   Membership[]
 
-  incidents      Incident[]
-  decisions      Decision[]
-  evidence       Evidence[]
-  timelineEvents TimelineEvent[]
-  actions        Action[]
+  incidents            Incident[]
+  decisions            Decision[]
+  evidence             Evidence[]
+  timelineEvents       TimelineEvent[]
+  actions              Action[]
+  intelligenceAnalyses IntelligenceAnalysis[]
 
   @@map("tenants")
 }
@@ -44,12 +45,13 @@ model User {
   memberships   Membership[]
   refreshTokens RefreshToken[]
 
-  createdIncidents  Incident[]      @relation("IncidentCreatedBy")
-  createdDecisions  Decision[]      @relation("DecisionCreatedBy")
-  decidedDecisions  Decision[]      @relation("DecisionDecidedBy")
-  submittedEvidence Evidence[]      @relation("EvidenceSubmittedBy")
-  timelineActions   TimelineEvent[] @relation("TimelineEventActor")
-  assignedActions   Action[]        @relation("ActionAssignedTo")
+  createdIncidents  Incident[]             @relation("IncidentCreatedBy")
+  createdDecisions  Decision[]             @relation("DecisionCreatedBy")
+  decidedDecisions  Decision[]             @relation("DecisionDecidedBy")
+  submittedEvidence Evidence[]             @relation("EvidenceSubmittedBy")
+  timelineActions   TimelineEvent[]        @relation("TimelineEventActor")
+  assignedActions   Action[]               @relation("ActionAssignedTo")
+  submittedAnalyses IntelligenceAnalysis[] @relation("IntelligenceAnalysisSubmittedBy")
 
   @@map("users")
 }
@@ -105,6 +107,17 @@ enum IncidentSeverity {
   CRITICAL
 }
 
+/// Drives the evidenceCompleteness lookup table (see ADR-0010). OTHER
+/// requires no specific evidence sources — an unclassified incident is
+/// never penalized for a checklist that doesn't apply to it.
+enum IncidentType {
+  CLOUD_OUTAGE
+  SECURITY_BREACH
+  DATA_LOSS
+  PERFORMANCE_DEGRADATION
+  OTHER
+}
+
 enum DecisionStatus {
   OPEN
   DECIDED
@@ -119,6 +132,19 @@ enum EvidenceType {
   OTHER
 }
 
+/// Which category of system this evidence came from — distinct from
+/// EvidenceType (what kind of artifact it is). Drives evidenceCompleteness
+/// and sourceReliability (see ADR-0010).
+enum EvidenceSourceCategory {
+  MONITORING
+  CLOUD_PROVIDER
+  LOG_AGGREGATOR
+  TICKETING
+  CHAT
+  HUMAN
+  OTHER
+}
+
 enum TimelineEventType {
   INCIDENT_CREATED
   INCIDENT_STATUS_CHANGED
@@ -128,6 +154,7 @@ enum TimelineEventType {
   EVIDENCE_ADDED
   ACTION_CREATED
   ACTION_STATUS_CHANGED
+  INTELLIGENCE_ANALYSIS_GENERATED
 }
 
 enum ActionStatus {
@@ -147,6 +174,7 @@ model Incident {
   description String
   status      IncidentStatus   @default(OPEN)
   severity    IncidentSeverity @default(MEDIUM)
+  type        IncidentType     @default(OTHER)
 
   createdByUserId String
   createdBy       User      @relation("IncidentCreatedBy", fields: [createdByUserId], references: [id])
@@ -154,10 +182,11 @@ model Incident {
   updatedAt       DateTime  @updatedAt
   closedAt        DateTime?
 
-  decisions      Decision[]
-  evidence       Evidence[]
-  timelineEvents TimelineEvent[]
-  actions        Action[]
+  decisions            Decision[]
+  evidence             Evidence[]
+  timelineEvents       TimelineEvent[]
+  actions              Action[]
+  intelligenceAnalyses IntelligenceAnalysis[]
 
   @@index([tenantId])
   @@map("incidents")
@@ -216,10 +245,11 @@ model Evidence {
   decisionId String?
   decision   Decision? @relation(fields: [decisionId], references: [id], onDelete: SetNull)
 
-  type    EvidenceType
-  source  String
-  summary String
-  url     String?
+  type           EvidenceType
+  sourceCategory EvidenceSourceCategory @default(OTHER)
+  source         String
+  summary        String
+  url            String?
 
   submittedByUserId String?
   submittedBy       User?    @relation("EvidenceSubmittedBy", fields: [submittedByUserId], references: [id])
@@ -285,4 +315,53 @@ model Action {
   @@index([tenantId])
   @@index([incidentId])
   @@map("actions")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4 — Decision Intelligence Engine (see ADR-0010)
+// ---------------------------------------------------------------------------
+
+/// A persisted AI Output Contract (see ADR-0010): the four confidence
+/// dimensions are stored as separate columns — never merged into one score,
+/// including at the persistence layer — computed server-side from Evidence
+/// rows and never accepted from a client. The qualitative fields are
+/// supplied by whoever calls POST /incidents/:id/analyze (today: a human
+/// analyst; later: a real LLM integration), validated against the same
+/// AIOutputContractDto either way.
+model IntelligenceAnalysis {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  // --- Confidence dimensions (ADR-0010) — four independent 0-100 scores ---
+  evidenceCompleteness Int
+  sourceReliability    Int
+  dataFreshness        Int
+  aiCertainty          Int
+
+  // --- Computed, never client-supplied ---
+  evidenceUsed       String[]
+  missingInformation String[]
+
+  // --- Supplied by the caller (human analyst or future LLM integration) ---
+  situationSummary       String
+  businessImpact         Json
+  criticalRisks          Json
+  conflictingInformation String[]
+  recommendedDecision    Json
+  alternativeDecisions   Json
+  expectedConsequences   String
+  immediateNextActions   String[]
+  executiveSummary       String
+
+  submittedByUserId String
+  submittedBy       User     @relation("IntelligenceAnalysisSubmittedBy", fields: [submittedByUserId], references: [id])
+  createdAt         DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([incidentId])
+  @@map("intelligence_analyses")
 }

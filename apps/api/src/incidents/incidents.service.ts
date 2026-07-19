@@ -37,6 +37,7 @@ export class IncidentsService {
         title: dto.title,
         description: dto.description,
         severity: dto.severity,
+        type: dto.type,
         createdByUserId,
       },
     });

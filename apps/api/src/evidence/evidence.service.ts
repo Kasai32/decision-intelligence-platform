@@ -34,6 +34,7 @@ export class EvidenceService {
         incidentId: dto.incidentId,
         decisionId: dto.decisionId,
         type: dto.type,
+        sourceCategory: dto.sourceCategory,
         source: dto.source,
         summary: dto.summary,
         url: dto.url,

@@ -33,14 +33,14 @@ Role hierarchy (`apps/api/src/auth/guards/roles.guard.ts`): `OWNER > ADMIN > MEM
 
 All routes require a valid access token and are scoped to the caller's tenant. Status transitions are guarded (see ADR-0007) — `PATCH .../status` rejects any jump not in `OPEN → MITIGATED → RESOLVED → CLOSED` with `400 Bad Request`.
 
-| Method | Path                            | Notes                                                                                                  |
-| ------ | ------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| POST   | `/incidents`                    | Create an incident (`title`, `description`, optional `severity`).                                      |
-| GET    | `/incidents`                    | List the tenant's incidents, newest first.                                                             |
-| GET    | `/incidents/:id`                | Full detail: incident + its decisions + evidence + actions.                                            |
-| GET    | `/incidents/:id/command-center` | `{ incident, openDecision, lastDecision }` — the North-Star / no-blank-state shape, ADR-0009.          |
-| GET    | `/incidents/:id/timeline`       | Ordered `TimelineEvent[]` audit trail. Read-only — events are written by the services, never directly. |
-| PATCH  | `/incidents/:id/status`         | Guarded status transition (see above).                                                                 |
+| Method | Path                            | Notes                                                                                                                                          |
+| ------ | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/incidents`                    | Create an incident (`title`, `description`, optional `severity`, optional `type` — drives Phase 4's `evidenceCompleteness` scoring, ADR-0010). |
+| GET    | `/incidents`                    | List the tenant's incidents, newest first.                                                                                                     |
+| GET    | `/incidents/:id`                | Full detail: incident + its decisions + evidence + actions.                                                                                    |
+| GET    | `/incidents/:id/command-center` | `{ incident, openDecision, lastDecision }` — the North-Star / no-blank-state shape, ADR-0009.                                                  |
+| GET    | `/incidents/:id/timeline`       | Ordered `TimelineEvent[]` audit trail. Read-only — events are written by the services, never directly.                                         |
+| PATCH  | `/incidents/:id/status`         | Guarded status transition (see above).                                                                                                         |
 
 ## Decisions (`apps/api/src/decisions`)
 
@@ -55,10 +55,10 @@ All routes require a valid access token and are scoped to the caller's tenant. S
 
 ## Evidence (`apps/api/src/evidence`)
 
-| Method | Path            | Notes                                                                                                            |
-| ------ | --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| POST   | `/evidence`     | `{ incidentId, decisionId?, type, source, summary, url? }`. `decisionId`, if given, must belong to `incidentId`. |
-| GET    | `/evidence/:id` | Fetch one piece of evidence.                                                                                     |
+| Method | Path            | Notes                                                                                                                                                                                                       |
+| ------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/evidence`     | `{ incidentId, decisionId?, type, sourceCategory?, source, summary, url? }`. `decisionId`, if given, must belong to `incidentId`. `sourceCategory` (default `OTHER`) drives Phase 4 scoring — see ADR-0010. |
+| GET    | `/evidence/:id` | Fetch one piece of evidence.                                                                                                                                                                                |
 
 ## Actions (`apps/api/src/actions`)
 
@@ -68,6 +68,17 @@ Status transitions guarded: `PENDING → IN_PROGRESS → DONE`, or `→ CANCELLE
 | ------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | POST   | `/actions`            | `{ incidentId, decisionId?, title, assignedToUserId?, dueAt? }`. `assignedToUserId`, if given, must be a tenant member. |
 | PATCH  | `/actions/:id/status` | Guarded status transition.                                                                                              |
+
+## Decision Intelligence Engine (`apps/api/src/decision-intelligence`)
+
+Implements the multidimensional confidence model from ADR-0010 / `PREREQUIS.md` §2. **`confidenceDimensions`, `evidenceUsed`, and the evidence-completeness portion of `missingInformation` are always computed server-side from the incident's real `Evidence` rows — a caller can never supply or override them.** The four dimensions (`evidenceCompleteness`, `sourceReliability`, `dataFreshness`, `aiCertainty`) are never merged into a single score.
+
+| Method | Path                              | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/incidents/:incidentId/analyze`  | Body: the qualitative fields only (`situationSummary`, `businessImpact`, `criticalRisks`, `conflictingInformation`, `recommendedDecision`, `alternativeDecisions`, `expectedConsequences`, `immediateNextActions`, `executiveSummary` — all required, arrays required even if empty per "Principle 3: never hidden"). Computes the four dimensions from the incident's evidence, assembles the full `AIOutputContract`, validates it server-side (`400` if the assembled object is structurally invalid), persists it, and returns it. |
+| GET    | `/incidents/:incidentId/analyses` | List past analyses for the incident, newest first.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+
+`evidenceCompleteness` requires specific `EvidenceSourceCategory` values per `Incident.type` (e.g. `CLOUD_OUTAGE` requires `[MONITORING, CLOUD_PROVIDER]`); `sourceReliability` averages a static per-category reliability table (e.g. `CLOUD_PROVIDER: 95`, `CHAT: 40`); `dataFreshness` decays from the most recent evidence's age, faster for higher-severity incidents; `aiCertainty` is an explicitly-documented deterministic heuristic (evidence volume + source diversity − conflict count), not a trained-model output — see ADR-0010 for the exact formulas and lookup tables.
 
 ## Integrations (Phase 6 seam, not a public API surface yet)
 

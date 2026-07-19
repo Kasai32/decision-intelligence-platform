@@ -357,3 +357,39 @@ infra/          — Docker, CI/CD-adjacent infra config
 **Status:** Done. All of `lint`, `format:check`, `test` (72 tests across 3 workspaces), and `build` pass; `npm audit` reports 0 vulnerabilities. No git remote exists to push to (see `memory/context.md`) — committed locally only.
 
 ---
+
+## 2026-07-19 — Phase 4 started: multidimensional confidence model, not a single black-box score
+
+**Context:** The user gave an explicit, detailed spec for the Decision Intelligence Engine's confidence model: four separate dimensions (`evidenceCompleteness`, `sourceReliability`, `dataFreshness`, `aiCertainty`), never merged into one number, plus a strict `AIOutputContract` that a validation layer must reject if incomplete. They referred to the write-up destination as "ADR-0007" — that number already belongs to the Phase 3 state-transition-guards ADR, so this work is recorded as **ADR-0010** instead (next sequential number per `docs/adr/README.md`'s own rule), not a silent overwrite of Phase 3's record.
+
+**Decision:** Full rationale in [ADR-0010](docs/adr/0010-decision-intelligence-confidence-model.md). Summary: two schema fields added (`Incident.type`, `Evidence.sourceCategory`) to make the completeness/reliability algorithms computable from real data; all four dimensions implemented as pure, independently-unit-tested functions; `aiCertainty` implemented as an explicit, documented deterministic heuristic (evidence volume + source diversity − conflict count) rather than a fabricated "ML" number, since no trained model or historical corpus exists in this system yet; the `AIOutputContract`'s computed fields (`confidenceDimensions`, `evidenceUsed`, the evidence-completeness portion of `missingInformation`) can never be supplied by a caller — only the server, from real `Evidence` rows, produces them.
+
+**Rationale:** Same principle as Phase 3's Principle 1 (no self-attested decisions) applied to confidence scoring: if a client could POST its own `confidenceDimensions`, the "auditable, non-black-box" property the user asked for would be worthless — anyone could claim 100% completeness. Computing it server-side from data a human could independently query and verify is what makes it actually auditable, not just labeled as such.
+
+**Status:** In progress — see subsequent entries for implementation, tests, and live verification.
+
+---
+
+## 2026-07-19 — Fixed two gaps that would have silently defeated the scoring model
+
+**Context:** While wiring `DecisionIntelligenceEngineService` to real `Incident`/`Evidence` data, found that `CreateIncidentDto` never exposed the new `type` field and `CreateEvidenceDto` never exposed the new `sourceCategory` field — both were added to the Prisma schema (ADR-0010) but not threaded through the existing Phase 3 create endpoints.
+
+**Decision:** Added `type?: IncidentType` to `CreateIncidentDto`/`IncidentsService.create()` and `sourceCategory?: EvidenceSourceCategory` to `CreateEvidenceDto`/`EvidenceService.create()`, both optional with the schema's `OTHER` default preserved.
+
+**Rationale:** Without this, every incident/evidence row would silently stay at `type: OTHER` / `sourceCategory: OTHER` regardless of what was actually created, `REQUIRED_EVIDENCE_SOURCES[OTHER] = []`, and `evidenceCompleteness` would always compute to 100% — a confidence dimension that always reports "fully complete" regardless of reality is exactly the fake-precision black box the user's entire Phase 4 directive is about _not_ building. Caught before commit by manually tracing the field from HTTP request through to the scoring functions, not by a failing test (the unit tests mock Prisma with `type`/`sourceCategory` supplied directly, so they wouldn't have caught a controller-layer gap — a live end-to-end check would have; see the verification entry below).
+
+**Status:** Done. Verified live: creating a `CLOUD_OUTAGE` incident and `MONITORING`/`CLOUD_PROVIDER` evidence via the real HTTP API now correctly reports `evidenceCompleteness: 100` only once both are actually present.
+
+---
+
+## 2026-07-19 — Phase 4 complete and verified end-to-end, including adversarial contract tests
+
+**Context:** Roadmap Phase 4 deliverable: `DecisionIntelligenceEngineService`, a deterministic 4-dimension confidence model, strict `AIOutputContract` validation, freshness-decay tests, documentation.
+
+**Decision:** Phase 4 is done: `IncidentType`/`EvidenceSourceCategory` enums + `Incident.type`/`Evidence.sourceCategory` fields + `IntelligenceAnalysis` model + migration; four pure scoring functions (`evidenceCompleteness`, `sourceReliability`, `dataFreshness`, `aiCertainty`) each independently unit-tested (24 tests, including freshness decay across elapsed time, per-severity degradation rates, and reproducibility with a fixed `now`); `AIOutputContractDto` (extends `SubmitIntelligenceAnalysisDto`) with every field required, including `missingInformation`/`conflictingInformation` as required (non-optional) arrays; `DecisionIntelligenceEngineService.analyze()` computing the objective fields server-side and validating the fully-assembled contract via a second, internal `class-validator` pass (8 more service tests, including a deliberately-malformed-object test proving this second pass catches what the controller boundary might miss). 96 tests total in `apps/api` (103 across the whole monorepo).
+
+**Rationale — live adversarial verification, not just unit tests:** Before committing, ran a full sequence against `docker compose up --build`: (1) created a `CLOUD_OUTAGE`/`HIGH` incident and ran `/analyze` with zero evidence attached → confirmed all four dimensions honestly report `0`, `missingInformation` correctly lists both missing required sources (`MONITORING`, `CLOUD_PROVIDER`), and the contract is still fully-formed (never a blank/partial response); (2) added one `MONITORING` and one `CLOUD_PROVIDER` piece of evidence, re-ran `/analyze` → `evidenceCompleteness: 100`, `sourceReliability: 93` (mean of 90 and 95), `dataFreshness: 100` (just-created evidence), `aiCertainty: 44` (2 evidence × 15 + 2 categories × 7), each computed independently and never merged; (3) attempted `/analyze` with `conflictingInformation` omitted entirely → `400`, exact Principle-3 violation; (4) attempted `/analyze` with a client-supplied `confidenceDimensions: {..., 100}` in the request body, simulating a caller trying to self-attest a fake confidence score → `400 "property confidenceDimensions should not exist"`, rejected by the controller's own DTO shape before the request even reaches the service — the strongest possible proof that a client cannot fabricate its own confidence numbers.
+
+**Status:** Done. All of `lint`, `format:check`, `test` (103 tests across 3 workspaces), and `build` pass; `npm audit` reports 0 vulnerabilities.
+
+---

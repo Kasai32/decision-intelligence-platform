@@ -4,9 +4,9 @@ Last updated: 2026-07-19.
 
 ## Current phase
 
-**Phase 3 — Executive Command Center / Incident & Decision domain model is complete**, per [PREREQUIS.md](../PREREQUIS.md) (the detailed §2 spec — domain model, state transition guards, interface contract — was supplied by the user directly in chat and transcribed into `PREREQUIS.md`; it was not actually on disk when the user referred to it, same gap as the original roadmap capture). Phases 1 (Foundation) and 2 (Platform core) were completed and committed first (`e197079`, `5599746`). All three phases are verified end-to-end: lint/format/test/build all green (99 tests total: 71 in `apps/api`, 6 in `apps/web`, plus `packages/shared`), and the live guard behavior was exercised for real, not just unit-tested. See [DECISION_LOG.md](../DECISION_LOG.md) for the full record.
+**Phase 4 — Decision Intelligence Engine (multidimensional confidence model) is complete**, per [PREREQUIS.md](../PREREQUIS.md). The user supplied the exact scoring algorithms and the `AIOutputContract` shape directly in chat (see [ADR-0010](../docs/adr/0010-decision-intelligence-confidence-model.md)). Phases 1–3 (`e197079`, `5599746`, `a826545`) were completed first. All four phases are verified end-to-end: lint/format/test/build all green, 96 tests in `apps/api` alone. See [DECISION_LOG.md](../DECISION_LOG.md) for the full record.
 
-**Next up per the roadmap: Phase 4 — Decision Intelligence Engine (Evidence Collection, Recommendation Engine, Confidence Model, Business Impact Analysis).** Not started. Flagged in the constraints below: the confidence-scoring methodology is a product/algorithmic decision, not a technical one, and should not be guessed wholesale.
+**Next up per the roadmap: Phase 5 — Reporting (Executive Brief Generator, Decision Reports, Lessons Learned, Knowledge Base).** Not started.
 
 ## Operating mode
 
@@ -14,26 +14,29 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 
 ## Known constraints at time of writing
 
-- No git remote configured — repository is local-only until one is added; "push" was requested for Phase 3 but there is nowhere to push to yet.
+- No git remote configured — repository is local-only until one is added.
 - No cloud provider, hosting target, or deployment environment specified anywhere in the source roadmap.
 - No specific compliance/regulatory requirement (SOC2, HIPAA, etc.) was specified, despite the enterprise-integration surface (Sentinel, Splunk, etc.) suggesting one may eventually apply. Revisit before Phase 6.
 - **Phase 6 (Enterprise Integrations) cannot be built for real without credentials/OAuth app registrations for each of the ten systems — none exist in this environment. The abstraction (ADR-0008) is built; the real implementations are not.**
-- **Phase 4 (Decision Intelligence Engine — Recommendation Engine, Confidence Model, Business Impact Analysis) requires actual business/algorithmic decisions that are product decisions, not technical ones.**
+- **No LLM integration exists in this environment.** The Decision Intelligence Engine (Phase 4) computes its four confidence dimensions for real from `Evidence` data, but the qualitative narrative fields of the AI Output Contract (`situationSummary`, `criticalRisks`, `recommendedDecision`, etc.) are supplied by whoever calls `POST /incidents/:id/analyze` — today, a human analyst. Wiring a real LLM to auto-populate those fields would need an API key/credential that doesn't exist here; the contract (`AIOutputContractDto`) is already the right shape to validate whatever a real LLM integration produces later.
 
-## Decisions made in Phase 3 (see DECISION_LOG.md / docs/adr for full rationale)
+## Decisions made in Phase 4 (see DECISION_LOG.md / ADR-0010 for full rationale)
 
-- Domain model: `Incident`, `Decision`, `Evidence`, `TimelineEvent`, `Action` — all `tenantId`-scoped and indexed (ADR-0006). The spec's `organization_id` is this codebase's existing `tenantId`/`Tenant`; no parallel `Organization` model was introduced.
-- State transition guards: a generic, reusable `assertValidTransition` engine (`apps/api/src/common/state-machine`) plus per-entity transition maps (ADR-0007). **Every transition, including same-state, must be explicitly listed — there is no implicit no-op** (a bug where this wasn't true let an already-`DECIDED` `Decision` be silently re-decided; fixed and tested, see DECISION_LOG.md).
-- **Principle 1 (the AI decides nothing alone):** `Decision.status` can only become `DECIDED` via `DecisionsService.decide()`, which requires a non-empty `humanDecision` AND a `decidedByUserId` verified to be a real member of the tenant. No other code path can set this status.
-- Phase 6 integrations: one shared `IntegrationProvider` TS interface + a `MockIntegrationProvider` per system (ServiceNow/Jira/Slack/Teams/AWS/Azure/GCP/Splunk/Datadog/Microsoft Sentinel), registered in `IntegrationsRegistryService`, already wired into incident-created/decision-decided events (ADR-0008). `isConfigured()` always reports `false` on the mocks — an honest "not wired up" signal.
-- Executive Command Center: `GET /incidents/:id/command-center` returns `{ incident, openDecision, lastDecision }`; the frontend (`apps/web`, `IncidentDecisionPanel` component) renders one of three states and never nothing (ADR-0009) — open decision, last decision's outcome, or an explicit "no decisions yet" message.
-- Frontend auth: minimal client-side JWT-in-localStorage flow (`apps/web/src/lib/auth-storage.ts`, `/login` page) — no refresh-token rotation wired into the frontend yet (the backend supports it), no "remember me"/session persistence design beyond localStorage. Sufficient for Phase 3's UI contract; revisit before real users.
+- Four independent confidence dimensions, never merged into one score: `evidenceCompleteness`, `sourceReliability`, `dataFreshness`, `aiCertainty` — each a pure, unit-tested function in `apps/api/src/decision-intelligence/scoring/`.
+- Two new schema fields to make the algorithms computable: `Incident.type` (`IncidentType` enum) and `Evidence.sourceCategory` (`EvidenceSourceCategory` enum) — both default to a neutral value (`OTHER`) so unclassified data isn't penalized.
+- `aiCertainty` is an explicit, documented **heuristic** (evidence volume + source diversity − conflict count), not a trained-model output — this system has no model or historical corpus. Stated in code and in ADR-0010, not hidden.
+- **`confidenceDimensions`, `evidenceUsed`, and the evidence-gap portion of `missingInformation` can never be supplied by a client** — `DecisionIntelligenceEngineService.analyze()` always computes them from real `Evidence` rows, even if a caller bypasses the controller's `ValidationPipe` (a second, internal `class-validator` pass on the fully-assembled contract catches this — proven by a dedicated test).
+- `IntelligenceAnalysis` is persisted with the four dimensions as separate integer columns (not merged even at the DB layer), plus the qualitative fields (mostly `Json` columns for the variably-shaped nested objects), linked to `Incident` + `TimelineEvent`.
+- The ADR is numbered **0010**, not "0007" as the user's message suggested (0007 already belongs to Phase 3's state-transition-guards ADR) — noted transparently rather than silently renumbered or overwritten.
+- Fixed two pre-existing gaps found while wiring this up: `CreateIncidentDto` didn't expose `type` and `CreateEvidenceDto` didn't expose `sourceCategory` — without these, every incident/evidence would default to `OTHER` and `evidenceCompleteness` would always read 100%, silently defeating the scoring model. Both fixed before commit.
 
 ## Open questions for later phases
 
 - Hosting/deployment target (needed before CI/CD can deploy anything, not just build/test it).
 - Email delivery provider (needed for real invite/password-reset flows).
-- Multi-tenant login/tenant-selection flow (a user with >1 tenant membership still cannot log in — Phase 2 limitation, unchanged in Phase 3).
-- Phase 4 confidence-scoring methodology — needs product input.
+- Multi-tenant login/tenant-selection flow (a user with >1 tenant membership still cannot log in — Phase 2 limitation, unchanged since).
+- Real LLM integration for the AI Output Contract's qualitative fields — needs an API key/credential and a product decision on which provider.
+- Phase 5 (Reporting) — likely consumes `IntelligenceAnalysis` + `Decision` data; not yet scoped.
 - Phase 6 — needs real credentials per integration, see constraint above.
-- Frontend refresh-token handling (access token expiry currently just breaks API calls with no silent refresh) — fine for Phase 3's scope, worth hardening before real usage.
+- Frontend refresh-token handling (access token expiry currently just breaks API calls with no silent refresh) — worth hardening before real usage.
+- The Decision Intelligence Engine's endpoints (`/incidents/:id/analyze`, `/incidents/:id/analyses`) have no `apps/web` UI yet — only the backend and its tests exist.
