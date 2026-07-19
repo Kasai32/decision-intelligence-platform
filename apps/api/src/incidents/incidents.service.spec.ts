@@ -8,7 +8,7 @@ describe('IncidentsService', () => {
   let prisma: {
     incident: { create: jest.Mock; findMany: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
     timelineEvent: { create: jest.Mock; findMany: jest.Mock };
-    decision: { findFirst: jest.Mock };
+    decision: { findFirst: jest.Mock; findMany: jest.Mock };
   };
   let integrations: { broadcast: jest.Mock };
   let service: IncidentsService;
@@ -17,7 +17,7 @@ describe('IncidentsService', () => {
     prisma = {
       incident: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
       timelineEvent: { create: jest.fn(), findMany: jest.fn() },
-      decision: { findFirst: jest.fn() },
+      decision: { findFirst: jest.fn(), findMany: jest.fn() },
     };
     integrations = { broadcast: jest.fn().mockResolvedValue(undefined) };
     service = new IncidentsService(
@@ -76,33 +76,45 @@ describe('IncidentsService', () => {
   });
 
   describe('getCommandCenterSummary', () => {
-    it('returns the open decision when one exists', async () => {
+    it('returns the open decision when exactly one exists', async () => {
       prisma.incident.findFirst.mockResolvedValue({ id: 'i1' });
-      prisma.decision.findFirst
-        .mockResolvedValueOnce({ id: 'd1', status: 'OPEN' })
-        .mockResolvedValueOnce(null);
+      prisma.decision.findMany.mockResolvedValue([{ id: 'd1', status: 'OPEN' }]);
+      prisma.decision.findFirst.mockResolvedValue(null);
 
       const summary = await service.getCommandCenterSummary('t1', 'i1');
-      expect(summary.openDecision).toEqual({ id: 'd1', status: 'OPEN' });
+      expect(summary.openDecisions).toEqual([{ id: 'd1', status: 'OPEN' }]);
+    });
+
+    it('returns ALL open decisions when several are simultaneously open (see ADR-0013)', async () => {
+      prisma.incident.findFirst.mockResolvedValue({ id: 'i1' });
+      prisma.decision.findMany.mockResolvedValue([
+        { id: 'd1', status: 'OPEN', question: 'Isolate the network?' },
+        { id: 'd2', status: 'OPEN', question: 'Communicate publicly?' },
+      ]);
+      prisma.decision.findFirst.mockResolvedValue(null);
+
+      const summary = await service.getCommandCenterSummary('t1', 'i1');
+      expect(summary.openDecisions).toHaveLength(2);
+      expect(summary.openDecisions.map((d) => d.id)).toEqual(['d1', 'd2']);
     });
 
     it('falls back to the last decided decision when there is no open one', async () => {
       prisma.incident.findFirst.mockResolvedValue({ id: 'i1' });
-      prisma.decision.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ id: 'd2', status: 'DECIDED' });
+      prisma.decision.findMany.mockResolvedValue([]);
+      prisma.decision.findFirst.mockResolvedValue({ id: 'd2', status: 'DECIDED' });
 
       const summary = await service.getCommandCenterSummary('t1', 'i1');
-      expect(summary.openDecision).toBeNull();
+      expect(summary.openDecisions).toEqual([]);
       expect(summary.lastDecision).toEqual({ id: 'd2', status: 'DECIDED' });
     });
 
-    it('returns both null when the incident has no decisions at all (frontend renders an explicit empty state, never blank)', async () => {
+    it('returns an empty array and null when the incident has no decisions at all (frontend renders an explicit empty state, never blank)', async () => {
       prisma.incident.findFirst.mockResolvedValue({ id: 'i1' });
-      prisma.decision.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      prisma.decision.findMany.mockResolvedValue([]);
+      prisma.decision.findFirst.mockResolvedValue(null);
 
       const summary = await service.getCommandCenterSummary('t1', 'i1');
-      expect(summary.openDecision).toBeNull();
+      expect(summary.openDecisions).toEqual([]);
       expect(summary.lastDecision).toBeNull();
     });
   });

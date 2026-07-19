@@ -38,7 +38,7 @@ All routes require a valid access token and are scoped to the caller's tenant. S
 | POST   | `/incidents`                    | Create an incident (`title`, `description`, optional `severity`, optional `type` — drives Phase 4's `evidenceCompleteness` scoring, ADR-0010). |
 | GET    | `/incidents`                    | List the tenant's incidents, newest first.                                                                                                     |
 | GET    | `/incidents/:id`                | Full detail: incident + its decisions + evidence + actions.                                                                                    |
-| GET    | `/incidents/:id/command-center` | `{ incident, openDecision, lastDecision }` — the North-Star / no-blank-state shape, ADR-0009.                                                  |
+| GET    | `/incidents/:id/command-center` | `{ incident, openDecisions, lastDecision }` — the North-Star / no-blank-state shape, ADR-0009 (amended by ADR-0013 to support multiple simultaneously open decisions). |
 | GET    | `/incidents/:id/timeline`       | Ordered `TimelineEvent[]` audit trail. Read-only — events are written by the services, never directly.                                         |
 | PATCH  | `/incidents/:id/status`         | Guarded status transition (see above).                                                                                                         |
 
@@ -139,6 +139,16 @@ Any of the ten `providerType` values (`SERVICENOW`, `JIRA`, `SLACK`, `TEAMS`, `A
 | POST   | `/webhooks/:tenantId/:providerType` | HMAC signature (`X-Signature`), not JWT | Generic inbound alert receiver (Splunk/Jira/Sentinel-style). Body: `{ incidentId, summary, url? }`. |
 
 **Not prefixed with `/api/v1`** (external systems call it directly, like `/health`). Not behind `JwtAuthGuard` — the caller is an external system with no user session. Security boundary: `X-Signature` must be `HMAC-SHA256(rawRequestBody, webhookSecret)` in hex, where `webhookSecret` is a key inside that tenant/provider's encrypted `IntegrationConfig` credentials — compared with `crypto.timingSafeEqual`. Any mismatch, missing header, missing/broken config, or missing `webhookSecret` → `401`, and the payload is never parsed or persisted. On success, creates an `Evidence` row (system-originated, `submittedByUserId: null`) linked to the given `incidentId`, with `sourceCategory` mapped from the provider (e.g. `SPLUNK → LOG_AGGREGATOR`, `JIRA → TICKETING`).
+
+## Simulation (`apps/api/src/simulation` — user validation test scenarios, ADR-0013)
+
+Builds disposable, tenant-scoped test incidents on demand for facilitator-driven validation sessions, entirely by composing existing services (`IncidentsService`, `DecisionsService`, `EvidenceService`, `IntegrationConfigService`, `IntegrationsRegistryService`, `DecisionIntelligenceEngineService`) — no new persistence path, no bypass of any existing guard. Every triggered incident's title is prefixed `[SIMULATION]`.
+
+| Method | Path                  | Min. role | Notes                                                                                                                                                                                                                                                                                       |
+| ------ | --------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/simulation/trigger` | ADMIN     | `{ scenario: "CYBER_RANSOMWARE" \| "CLOUD_OUTAGE_PARTIAL_EVIDENCE" }` → `{ scenario, incident }`. **`CYBER_RANSOMWARE`**: `SECURITY_BREACH`/`CRITICAL` incident, one `MONITORING` evidence row, two simultaneously `OPEN` decisions left undecided (exercises the multi-decision Command Center panel). **`CLOUD_OUTAGE_PARTIAL_EVIDENCE`**: `CLOUD_OUTAGE`/`HIGH` incident with only `CLOUD_PROVIDER` evidence attached, configures the tenant's `DATADOG` integration with fixture `simulateFailure: true` credentials and drives three real broadcasts to trip its circuit breaker `OPEN` (ADR-0012), then seeds one real `IntelligenceAnalysis` via `DecisionIntelligenceEngineService.analyze()` — so `evidenceCompleteness` genuinely reads 50% and the "not enough evidence" state is the engine's own computation, not a scripted message. |
+
+Both scenarios are strictly scoped to the caller's own `tenantId` (ADR-0004) — never a client-supplied tenant.
 
 ## Health
 

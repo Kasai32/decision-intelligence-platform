@@ -4,9 +4,11 @@ Last updated: 2026-07-19.
 
 ## Current phase
 
-**Phase 6 — Enterprise Integrations (resilience engine + per-tenant encrypted configuration) is complete**, per [PREREQUIS.md](../PREREQUIS.md). The user supplied a detailed three-part spec (circuit breaker + retry, per-tenant encrypted `IntegrationConfig` with `STUB_MODE` fallback, HMAC-validated webhooks) and explicitly authorized using encrypted fixtures + simulated network failures instead of real OAuth tokens (see [ADR-0012](../docs/adr/0012-integration-resilience-and-tenant-config.md)). Phases 1–5 (`e197079`, `5599746`, `a826545`, `cccc655`, `29c7e55`) were completed first. All six roadmap phases now have a working MVP; 157 tests in `apps/api` alone. See [DECISION_LOG.md](../DECISION_LOG.md) for the full record.
+**All six PREREQUIS.md phases are complete**, per [PREREQUIS.md](../PREREQUIS.md). Phases 1–5 (`e197079`, `5599746`, `a826545`, `cccc655`, `29c7e55`) and Phase 6 — Enterprise Integrations (resilience engine + per-tenant encrypted configuration, [ADR-0012](../docs/adr/0012-integration-resilience-and-tenant-config.md)) form the working MVP. See [DECISION_LOG.md](../DECISION_LOG.md) for the full record.
 
-**All six PREREQUIS.md phases are now built.** What remains is filling in real-world specifics this environment cannot provide (see constraints below), not new phases.
+**Post-roadmap: user validation test-session prep is complete** (see [ADR-0013](../docs/adr/0013-simulation-scenario-architecture.md)). `SimulationScenarioService` (`apps/api/src/simulation`) lets a tenant ADMIN instantly instantiate two disposable, `[SIMULATION]`-prefixed test scenarios via `POST /simulation/trigger` — a ransomware incident with two simultaneously open decisions, and a cloud-outage incident with genuinely incomplete evidence (it actually trips the tenant's Datadog integration circuit breaker). Building this surfaced and fixed a real pre-existing gap: the Command Center only ever returned one `openDecision`, silently hiding any second simultaneously open decision — amended in-place to `openDecisions: Decision[]` (ADR-0009 amendment, documented in ADR-0013). `apps/web` gained a matching `/simulation` facilitator panel. 175 tests in `apps/api`, 11 in `apps/web`.
+
+**What remains is filling in real-world specifics this environment cannot provide (see constraints below), not new phases.**
 
 ## Operating mode
 
@@ -32,6 +34,13 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 - `IntegrationKey` moved from a hand-written TS enum into the Prisma schema — `@prisma/client` is now the single source of truth.
 - Webhook endpoint (`POST /webhooks/:tenantId/:providerType`) is deliberately outside `/api/v1` and NOT behind `JwtAuthGuard` — its security boundary is an HMAC-SHA256 signature over the **raw** request body (captured via an `express.json({ verify })` hook in `main.ts`, since Nest's default body parser doesn't expose raw bytes), checked with `crypto.timingSafeEqual`. A valid webhook creates system-originated `Evidence` (reusing ADR-0006's already-nullable `submittedByUserId`) — no new persistence path was needed.
 
+## Decisions made in user-validation test-session prep (see DECISION_LOG.md / ADR-0013 for full rationale)
+
+- `SimulationScenarioService` has zero new persistence paths — both scenarios are built entirely from existing tenant-scoped service calls (`IncidentsService`, `DecisionsService`, `EvidenceService`, `IntegrationConfigService`, `IntegrationsRegistryService`, `DecisionIntelligenceEngineService`), so any bug they surface is a bug in a real product code path, not a simulation-specific one.
+- Scenario B's "not enough evidence" state is never hand-typed: it's produced by actually starving `evidenceCompleteness` of `MONITORING` evidence and actually driving three broadcasts to trip the Datadog circuit breaker, then calling the real `DecisionIntelligenceEngineService.analyze()`.
+- `POST /simulation/trigger` is `@Roles(Role.ADMIN)`-gated; `apps/web`'s `/simulation` page has no client-side role check (the backend 403 is the only enforcement, consistent with every other admin-only action in this codebase).
+- The referenced `incident-commander-validation-guide.md` does not exist in this repository (checked, not on disk) — as with earlier gaps of this kind (`PREREQUIS.md`, Phase 3), the user's chat message contained enough of a spec to proceed; the discrepancy is noted in ADR-0013 rather than blocking work.
+
 ## Open questions for later work
 
 - Hosting/deployment target (needed before CI/CD can deploy anything, not just build/test it).
@@ -41,5 +50,5 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 - Real integration credentials per Phase 6 system, see constraint above — the seam (`NetworkSimulator`) is ready.
 - Circuit-breaker state is in-process memory only — would need a shared store (Redis) for a multi-replica deployment (see ADR-0012, explicitly out of scope for this single-instance MVP).
 - Frontend refresh-token handling (access token expiry currently just breaks API calls with no silent refresh) — worth hardening before real usage.
-- No `apps/web` UI exists yet for Decision Intelligence Engine (Phase 4), Reporting (Phase 5), or Integrations management (Phase 6) — only backend + tests. The Executive Command Center UI (Phase 3) is the only frontend surface built so far.
+- No `apps/web` UI exists yet for Decision Intelligence Engine (Phase 4), Reporting (Phase 5), or Integrations management (Phase 6) — only backend + tests. The Executive Command Center (Phase 3), login, and the `/simulation` facilitator panel (ADR-0013) are the only frontend surfaces built so far.
 - Knowledge Base search is keyword/ILIKE-based; revisit with semantic/embedding search if Lessons Learned volume grows large (see ADR-0011).

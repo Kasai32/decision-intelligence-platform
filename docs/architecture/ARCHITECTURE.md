@@ -50,6 +50,9 @@ Everything below is designed so Phases 2–6 are additive (new modules/packages)
                          │     Decision Reports /    │     immutable snapshots, factual only
                          │     Lessons Learned /     │
                          │     Knowledge Base        │
+                         │  ── Simulation module     │  <- Post-roadmap (done — ADR-0013)
+                         │     (ADMIN-only test       │     validation-test scenario injector
+                         │     scenario injector)     │
                          └────────────┬─────────────┘
                                       │ Prisma
                          ┌────────────▼─────────────┐
@@ -70,9 +73,11 @@ Everything below is designed so Phases 2–6 are additive (new modules/packages)
                               (now includes Incident/Decision/CommandCenterSummary)
 ```
 
-Full endpoint reference: [docs/api/README.md](../api/README.md). Design rationale: ADR-0003 (Prisma), ADR-0004 (shared-schema multi-tenancy), ADR-0005 (self-hosted JWT auth), ADR-0006 (Incident/Decision/Evidence/TimelineEvent/Action domain model), ADR-0007 (state transition guards + Principle 1), ADR-0008 (Phase 6 integration abstraction), ADR-0009 (Command Center no-blank-state contract), ADR-0010 (Decision Intelligence Engine confidence model), ADR-0011 (Phase 5 Reporting architecture), ADR-0012 (integration resilience + per-tenant encrypted config).
+Full endpoint reference: [docs/api/README.md](../api/README.md). Design rationale: ADR-0003 (Prisma), ADR-0004 (shared-schema multi-tenancy), ADR-0005 (self-hosted JWT auth), ADR-0006 (Incident/Decision/Evidence/TimelineEvent/Action domain model), ADR-0007 (state transition guards + Principle 1), ADR-0008 (Phase 6 integration abstraction), ADR-0009 (Command Center no-blank-state contract, amended by ADR-0013), ADR-0010 (Decision Intelligence Engine confidence model), ADR-0011 (Phase 5 Reporting architecture), ADR-0012 (integration resilience + per-tenant encrypted config), ADR-0013 (user validation test scenarios / `SimulationScenarioService`).
 
 External integrations (ServiceNow, Jira, Slack, Teams, AWS/Azure/GCP, Splunk, Datadog, Microsoft Sentinel) are ten `ResilientIntegrationProvider` instances (circuit breaker + retry wrapping a `ConfigurableIntegrationProvider`), one lazily built and cached per `(tenantId, providerKey)` by `IntegrationsRegistryService` (see ADR-0012, evolved from Phase 3's tenant-unaware mocks, ADR-0008). No real OAuth credentials exist in this environment (see `memory/context.md`) — a tenant configures a provider via `POST /integrations/:providerType/config` with AES-256-GCM-encrypted (fixture) credentials; unconfigured providers run in `STUB_MODE`. `IncidentsService`/`DecisionsService` broadcast to all of them on incident-created/decision-decided; three consecutive failures open a provider's circuit breaker (degraded responses, one `INTEGRATION_BLOCKED` `TimelineEvent`), recovering automatically after a cooldown probe succeeds.
+
+`SimulationScenarioService` (`apps/api/src/simulation`, ADR-0013) is a post-roadmap, ADMIN-only addition built entirely by composing the services above — it creates real, `[SIMULATION]`-prefixed `Incident`/`Decision`/`Evidence` rows (never a synthetic bypass path) so user-validation test sessions can instantly stand up a ransomware scenario (two simultaneously open decisions) or a cloud-outage scenario with genuinely incomplete evidence (it configures the tenant's Datadog integration with a `simulateFailure` fixture credential and drives real broadcasts to trip its circuit breaker `OPEN`, then seeds a real `IntelligenceAnalysis`). `POST /simulation/trigger` is gated `JwtAuthGuard` + `RolesGuard` + `@Roles(Role.ADMIN)`; `apps/web`'s `/simulation` page is a minimal facilitator panel with one button per scenario.
 
 ## 3. Monorepo layout
 

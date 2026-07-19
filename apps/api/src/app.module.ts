@@ -12,6 +12,7 @@ import { IncidentsModule } from './incidents/incidents.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { LessonsLearnedModule } from './lessons-learned/lessons-learned.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SimulationModule } from './simulation/simulation.module';
 import { TenantsModule } from './tenants/tenants.module';
 
 @Module({
@@ -29,6 +30,7 @@ import { TenantsModule } from './tenants/tenants.module';
     ExecutiveBriefsModule,
     DecisionReportsModule,
     LessonsLearnedModule,
+    SimulationModule,
     HealthModule,
   ],
 })

@@ -21,7 +21,8 @@ An ADR captures a single significant, hard-to-reverse architectural decision: th
 | [0006](0006-incident-decision-domain-model.md)           | Incident/Decision/Evidence/TimelineEvent/Action domain model                         | Accepted |
 | [0007](0007-state-transition-guards.md)                  | State transition guard engine + Principle 1 (AI decides nothing alone)               | Accepted |
 | [0008](0008-phase6-integration-abstraction.md)           | Phase 6 integration abstraction (mock providers)                                     | Accepted |
-| [0009](0009-command-center-no-blank-state.md)            | Executive Command Center: server-shaped "no blank state" contract                    | Accepted |
+| [0009](0009-command-center-no-blank-state.md)            | Executive Command Center: server-shaped "no blank state" contract                    | Accepted (amended by ADR-0013) |
 | [0010](0010-decision-intelligence-confidence-model.md)   | Decision Intelligence Engine: multidimensional confidence model + AI Output Contract | Accepted |
 | [0011](0011-phase5-reporting-architecture.md)            | Phase 5 Reporting: immutable generated artifacts, factual auto-assembly              | Accepted |
 | [0012](0012-integration-resilience-and-tenant-config.md) | Integration resilience engine + per-tenant encrypted configuration                   | Accepted |
+| [0013](0013-simulation-scenario-architecture.md)         | User validation test scenarios: SimulationScenarioService (amends ADR-0009)          | Accepted |

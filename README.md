@@ -4,6 +4,8 @@ Enterprise decision intelligence and incident command platform. Tracks incidents
 
 Status: **All 6 roadmap phases have a working MVP** (see [PREREQUIS.md](PREREQUIS.md) for the full roadmap). Foundation, Auth/RBAC/Tenant Management, the Incident/Decision domain model with its guards and Executive Command Center, the multidimensional Decision Intelligence confidence model, Reporting (Executive Briefs/Decision Reports/Lessons Learned/Knowledge Base), and Phase 6's integration resilience engine (circuit breaker + retry, per-tenant AES-256-GCM-encrypted config, HMAC-validated webhooks) are all done and verified end-to-end — see [DECISION_LOG.md](DECISION_LOG.md). No real integration credentials or LLM provider are wired up (none exist in this environment — see `memory/context.md`); everything real-world-facing is built against a documented, swappable seam.
 
+**Post-roadmap:** an ADMIN-only `SimulationScenarioService` (`POST /simulation/trigger`, `apps/web`'s `/simulation` panel) instantly stands up two disposable, tenant-isolated test scenarios for user-validation sessions — see [ADR-0013](docs/adr/0013-simulation-scenario-architecture.md).
+
 ## Repository map
 
 ```

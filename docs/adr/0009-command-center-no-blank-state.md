@@ -27,3 +27,7 @@ Phase 3's spec (see `PREREQUIS.md` §2 — Interface Contract) requires the Exec
 ## Alternatives considered
 
 - Have the frontend fetch the full decisions list and compute open-vs-last itself — rejected: duplicates a business rule client-side, and every future consumer (mobile app, another dashboard) would have to reimplement the same "never blank" logic correctly.
+
+## Amendment (2026-07-19, see ADR-0013)
+
+`openDecision: Decision | null` became **`openDecisions: Decision[]`** — an incident can genuinely have more than one simultaneously open decision (e.g. "isolate the network?" and "communicate publicly?" during the same breach), and the original singular shape silently hid every open decision after the first. `lastDecision` and the three-state "never blank" principle are unchanged; only the cardinality of the "decision required" state changed from at-most-one to a list. Discovered while building a validation-test scenario specifically meant to exercise multi-decision behavior — the gap would have made that scenario test nothing.

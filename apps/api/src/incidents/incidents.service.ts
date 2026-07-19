@@ -15,7 +15,7 @@ import { INCIDENT_TRANSITIONS } from './incident.state-machine';
 
 export interface CommandCenterSummary {
   incident: Incident;
-  openDecision: Decision | null;
+  openDecisions: Decision[];
   lastDecision: Decision | null;
 }
 
@@ -92,10 +92,12 @@ export class IncidentsService {
   }
 
   /**
-   * Shapes the Executive Command Center payload per ADR-0009: never a bare
-   * incident with no decision context — always the open decision if one
-   * exists, otherwise the outcome of the last decided one (or both null,
-   * which the frontend renders as an explicit empty state, never blank).
+   * Shapes the Executive Command Center payload per ADR-0009 (amended by
+   * ADR-0013): never a bare incident with no decision context — always
+   * every currently open decision (an incident can genuinely have more
+   * than one simultaneously, e.g. "isolate the network?" and "communicate
+   * publicly?" during the same breach), otherwise the outcome of the last
+   * decided one, or an explicit empty state if there's neither.
    */
   async getCommandCenterSummary(
     tenantId: string,
@@ -103,10 +105,10 @@ export class IncidentsService {
   ): Promise<CommandCenterSummary> {
     const incident = await this.getIncidentOrThrow(tenantId, incidentId);
 
-    const [openDecision, lastDecision] = await Promise.all([
-      this.prisma.decision.findFirst({
+    const [openDecisions, lastDecision] = await Promise.all([
+      this.prisma.decision.findMany({
         where: { tenantId, incidentId, status: DecisionStatus.OPEN },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: 'asc' },
       }),
       this.prisma.decision.findFirst({
         where: { tenantId, incidentId, status: DecisionStatus.DECIDED },
@@ -114,7 +116,7 @@ export class IncidentsService {
       }),
     ]);
 
-    return { incident, openDecision, lastDecision };
+    return { incident, openDecisions, lastDecision };
   }
 
   async updateStatus(

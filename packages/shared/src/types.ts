@@ -34,10 +34,10 @@ export interface Decision {
   updatedAt: string;
 }
 
-/** Shape returned by GET /incidents/:id/command-center — see ADR-0009. */
+/** Shape returned by GET /incidents/:id/command-center — see ADR-0009 (amended by ADR-0013). */
 export interface CommandCenterSummary {
   incident: Incident;
-  openDecision: Decision | null;
+  openDecisions: Decision[];
   lastDecision: Decision | null;
 }
 
@@ -45,3 +45,6 @@ export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
 }
+
+/** See ADR-0013 — user validation test scenarios. */
+export type SimulationScenario = 'CYBER_RANSOMWARE' | 'CLOUD_OUTAGE_PARTIAL_EVIDENCE';

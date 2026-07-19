@@ -91,6 +91,9 @@ export default function CommandCenterPage() {
   return (
     <main>
       <h1>Executive Command Center</h1>
+      <p>
+        <Link href="/simulation">User validation test scenarios</Link>
+      </p>
       <nav aria-label="Incidents">
         <ul>
           {incidents.map((incident) => (
@@ -111,7 +114,7 @@ export default function CommandCenterPage() {
           </p>
           {summary ? (
             <IncidentDecisionPanel
-              openDecision={summary.openDecision}
+              openDecisions={summary.openDecisions}
               lastDecision={summary.lastDecision}
             />
           ) : (
