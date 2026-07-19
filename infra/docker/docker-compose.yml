@@ -26,6 +26,9 @@ services:
     environment:
       PORT: 3001
       DATABASE_URL: postgresql://dip:dip@postgres:5432/dip
+      # Dev-only default (see ADR-0005 / apps/api/.env.example) — override for any non-local environment.
+      JWT_ACCESS_SECRET: dev-only-change-me
+      JWT_ACCESS_TTL_SECONDS: 900
     ports:
       - '3001:3001'
     depends_on:

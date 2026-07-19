@@ -224,3 +224,83 @@ infra/          — Docker, CI/CD-adjacent infra config
 **Status:** Done. All green.
 
 ---
+
+## 2026-07-19 — Phase 2 started: ORM, multi-tenancy, and auth strategy decided upfront
+
+**Context:** `memory/context.md` flagged three open questions before Phase 2 schema work could start: ORM choice, multi-tenancy isolation strategy, and auth build-vs-buy. All three are load-bearing for the very first migration, so they were resolved before writing `schema.prisma` rather than during it.
+
+**Decision:**
+
+- ORM: **Prisma**. Full rationale in [ADR-0003](docs/adr/0003-orm-prisma.md).
+- Multi-tenancy: **shared schema with a `tenantId` column** on every tenant-owned table, scoped at the application layer. Full rationale in [ADR-0004](docs/adr/0004-multi-tenancy-shared-schema.md).
+- Auth: **self-hosted email/password + JWT** (argon2 password hashing, access + rotating/revocable refresh tokens), not a third-party provider. Full rationale in [ADR-0005](docs/adr/0005-self-hosted-jwt-auth.md).
+
+**Rationale:** All three are architecturally significant and expensive to reverse once real tenant data and user credentials exist, which is why each got a full ADR rather than just a log entry. The auth decision in particular was constrained by environment reality: this agent has no ability to create an Auth0/Clerk/WorkOS account or obtain real API keys, so "buy" was not actually an available option regardless of its technical merits — documented explicitly so a human doesn't mistake this for a considered rejection of managed auth on the merits alone.
+
+**Status:** Done. See ADR-0003, ADR-0004, ADR-0005.
+
+---
+
+## 2026-07-19 — Override `@hono/node-server` (transitive of `prisma` CLI's unused local-dev feature)
+
+**Context:** Installing `prisma@7.8.0` pulled in `@prisma/dev` (the CLI's optional embedded local-Postgres dev-server feature, not used here — this repo runs Postgres via `docker-compose`), which depends on a vulnerable `@hono/node-server@1.19.11` (moderate: static-file middleware bypass via repeated slashes).
+
+**Decision:** Added `"@hono/node-server": "^2.0.10"` to the root `overrides` alongside the existing `postcss` override.
+
+**Rationale:** Same pattern as the earlier `postcss` fix — a targeted override to a patched, semver-compatible version rather than downgrading `prisma` itself. The vulnerable code path (`prisma dev`'s embedded server) isn't exercised by this project's workflow at all, but patching costs nothing and keeps `npm audit` clean.
+
+**Status:** Done. `npm audit` reports 0 vulnerabilities.
+
+---
+
+## 2026-07-19 — Pin `prisma`/`@prisma/client` to latest 6.x (6.19.3), not 7.8.0
+
+**Context:** `prisma generate` against `prisma@7.8.0` failed immediately: `datasource.url` in `schema.prisma` — the exact pattern documented in ADR-0003 and used across the Prisma ecosystem for years — is no longer supported in Prisma 7. It now requires a `prisma.config.ts` file and an explicit driver adapter (`@prisma/adapter-pg` or similar) passed to the `PrismaClient` constructor instead of a plain connection URL.
+
+**Decision:** Pinned `prisma` and `@prisma/client` to `^6.19.3` (latest stable 6.x) instead of `latest` (7.8.0). This also made the `@hono/node-server` override (added for `prisma@7`'s bundled local-dev-server dependency) dead weight, so it was removed from `overrides` in the same pass.
+
+**Rationale:** Same principle as the earlier TypeScript 7 decision (see above): a two-week-old major version that changes a core, widely-documented configuration pattern is not something an unattended "enterprise-grade foundation" build should take on by default. Prisma 6.19.3 uses the classic, extremely well-documented `datasource { url = env("DATABASE_URL") }` pattern this schema (and ADR-0003, ADR-0004) were already written against, with no functional loss for this project's single-Postgres-datasource use case.
+
+**Alternatives considered:** Adopt Prisma 7's driver-adapter model now (`@prisma/adapter-pg` + `prisma.config.ts`) — rejected for now as unnecessary complexity with no benefit for a single, plain Postgres connection; worth revisiting once the ecosystem (docs, NestJS integration examples, Stack Overflow-level tribal knowledge) has caught up to Prisma 7.
+
+**Status:** Done. `prisma generate` runs successfully against 6.19.3.
+
+---
+
+## 2026-07-19 — `prisma` CLI moved to `dependencies`, runtime image runs `prisma migrate deploy` on start
+
+**Context:** The API Docker image needs to apply Prisma migrations against whatever Postgres it's pointed at when it starts (there's no separate migration-runner step in this Phase 2 cut). `prisma` (the CLI) was initially a devDependency, which is the common default, but that meant it wouldn't be present in the runtime image at all if devDependencies were ever pruned.
+
+**Decision:** Moved `prisma` from `devDependencies` to `dependencies` in `apps/api/package.json`. The runtime Docker image's `CMD` is now `npx prisma migrate deploy && node dist/main.js` — migrations run automatically on container start, before the server accepts traffic. The runtime stage also now copies `apps/api/node_modules` (not just the root `node_modules`) from the `build` stage, because `@prisma/client` resolves into the workspace-local `node_modules` in this monorepo's hoisting layout, and it copies `apps/api/prisma` (schema + migrations) since `prisma migrate deploy` needs both at runtime.
+
+**Rationale:** Running migrations automatically on container start is the simplest correct behavior for this stage (single-instance dev/staging use) — it means `docker compose up` alone is sufficient to get a working, migrated database, with no separate manual step. This is a known tradeoff versus a dedicated migration-job step (which avoids races if multiple API replicas start concurrently); acceptable now with a single `api` replica in `docker-compose.yml`, and flagged here as something to revisit before any multi-replica deployment.
+
+**Status:** Done. Verified: `docker compose up --build` builds both images, the `api` container applies the Prisma migration and starts cleanly, and `GET /health` plus `POST /api/v1/auth/register` both succeed against the live containerized stack.
+
+---
+
+## 2026-07-19 — Add `python3 make g++` to the API image's build stage (argon2 native binding)
+
+**Context:** `docker compose up --build` failed at `npm ci` in `apps/api/Dockerfile`'s `deps` stage: `argon2` (chosen in ADR-0005) ships a native Node binding and no prebuilt binary was available for this image's platform, so `npm` fell back to compiling from source via `node-gyp`, which requires Python and a C++ toolchain — neither present in the minimal `node:20-alpine` base image.
+
+**Decision:** Added `RUN apk add --no-cache python3 make g++` to the `deps` build stage, before `npm ci`. The final `runtime` stage is unaffected (still `node:20-alpine` with no build tools) since only the compiled `.node` binary is carried forward inside `node_modules`, not the toolchain itself.
+
+**Rationale:** This is the standard, well-known fix for native npm modules on Alpine and keeps ADR-0005's argon2 choice intact rather than downgrading to a pure-JS hashing library to dodge the build issue. Runtime image size/attack-surface is unaffected since the toolchain only exists in an intermediate build stage, discarded from the final image.
+
+**Alternatives considered:** Switch to a pure-JS or prebuilt-binary password hashing library (e.g. `bcryptjs`) to avoid native compilation — rejected; argon2 is the stronger, modern default already decided in ADR-0005, and the actual fix (add build tools to one Dockerfile stage) is small and standard.
+
+**Status:** Done. Verified via a full `docker compose up --build`.
+
+---
+
+## 2026-07-19 — Phase 2 (Platform core) complete and verified end-to-end
+
+**Context:** Roadmap Phase 2 deliverable: Authentication, RBAC, Tenant Management, API Gateway, Core Database.
+
+**Decision:** Phase 2 is done: `Tenant`/`User`/`Membership`/`RefreshToken` Prisma models + migration; `AuthModule` (register/login/refresh/logout, argon2 hashing, rotating revocable refresh tokens); `RolesGuard`/`JwtAuthGuard`/`@Roles` RBAC with `OWNER > ADMIN > MEMBER` rank; `TenantsModule` (get/update tenant, list/add/remove members, owner-removal protected); API Gateway concerns in `main.ts` (global `ValidationPipe`, global `AllExceptionsFilter`, `/api/v1` prefix, Swagger at `/api/v1/docs`); Docker/`docker-compose` wired to run migrations automatically on container start; 21 new unit tests (32 total in `apps/api`) covering the auth service, RBAC rank logic, and tenant service edge cases (duplicate registration, wrong password, expired/revoked/reused refresh tokens, duplicate/missing membership, owner-removal protection).
+
+**Rationale:** Before committing, the full flow was exercised for real — not just unit-tested — first against a locally-run build (`node dist/main.js` against a local Postgres) and then against the actual `docker compose up --build` stack: register → login → refresh (with old-token-reuse correctly rejected) → tenant lookup → add/list members → owner-removal correctly blocked (403) → duplicate-membership correctly blocked (409). All of `lint`, `format:check`, `test` (34 tests across 3 workspaces), and `build` pass; `npm audit` reports 0 vulnerabilities.
+
+**Status:** Done. Phase 3 (Executive Command Center / Incident & Decision Timelines / Dashboard) is next — see `memory/context.md` for why that phase's data-model design is flagged as needing more product input than Phases 1–2 did.
+
+---

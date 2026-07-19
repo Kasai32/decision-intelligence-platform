@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+/// A customer organization. All tenant-owned data is scoped by tenantId
+/// (see ADR-0004 — shared schema, application-layer tenant scoping).
+model Tenant {
+  id        String       @id @default(uuid())
+  name      String
+  slug      String       @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  members   Membership[]
+
+  @@map("tenants")
+}
+
+/// A person who can authenticate. A User may belong to multiple tenants
+/// via Membership (e.g. a consultant working with several customers).
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  memberships   Membership[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+/// The join between User and Tenant, carrying the RBAC role for that tenant.
+/// A given user has exactly one role per tenant.
+model Membership {
+  id       String @id @default(uuid())
+  role     Role   @default(MEMBER)
+  userId   String
+  tenantId String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@map("memberships")
+}
+
+/// Server-side record of issued refresh tokens so they can be individually
+/// revoked (see ADR-0005 — revocable refresh tokens over pure stateless JWT).
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}

@@ -2,7 +2,7 @@
 
 Enterprise decision intelligence and incident command platform. Tracks incidents and decisions, generates evidence-backed recommendations, and produces executive-level reporting, integrating with the tools enterprises already run.
 
-Status: **Phase 1 — Foundation** (see [PREREQUIS.md](PREREQUIS.md) for the full roadmap). No business features exist yet — this phase is the scaffolding: repo structure, standards, architecture, CI/CD, Docker, linting, testing, formatting, and security scanning.
+Status: **Phase 2 — Platform core** complete (see [PREREQUIS.md](PREREQUIS.md) for the full roadmap). Phase 1 (repo structure, standards, architecture, CI/CD, Docker, linting, testing, formatting, security scanning) and Phase 2 (Authentication, RBAC, Tenant Management, API Gateway, Core Database) are done and verified end-to-end — see [DECISION_LOG.md](DECISION_LOG.md). No incident/decision/reporting features exist yet (Phases 3–6).
 
 ## Repository map
 
@@ -36,10 +36,15 @@ Requires Node.js >= 20 and Docker.
 ```bash
 npm install
 cp apps/api/.env.example apps/api/.env
-docker compose -f infra/docker/docker-compose.yml up -d   # starts PostgreSQL
-npm run dev:api    # http://localhost:3001/health
+docker compose -f infra/docker/docker-compose.yml up -d postgres   # starts PostgreSQL only
+npm run prisma:migrate:dev --workspace apps/api                    # applies migrations locally
+npm run dev:api    # http://localhost:3001/health, Swagger at /api/v1/docs
 npm run dev:web    # http://localhost:3000
 ```
+
+Or run the entire stack (Postgres + api + web, migrations applied automatically on container start) in Docker: `docker compose -f infra/docker/docker-compose.yml up -d`.
+
+Full API reference: [docs/api/README.md](docs/api/README.md).
 
 ## Common commands
 

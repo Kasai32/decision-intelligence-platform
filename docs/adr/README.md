@@ -15,3 +15,6 @@ An ADR captures a single significant, hard-to-reverse architectural decision: th
 | --------------------------------------------- | --------------------------------------------------------------------------- | -------- |
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions as ADRs                                       | Accepted |
 | [0002](0002-core-technology-stack.md)         | Core technology stack (TypeScript/NestJS/Next.js/PostgreSQL/npm workspaces) | Accepted |
+| [0003](0003-orm-prisma.md)                    | ORM: Prisma                                                                 | Accepted |
+| [0004](0004-multi-tenancy-shared-schema.md)   | Multi-tenancy: shared schema with `tenantId` scoping                        | Accepted |
+| [0005](0005-self-hosted-jwt-auth.md)          | Authentication: self-hosted email/password + JWT                            | Accepted |
