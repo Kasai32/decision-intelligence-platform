@@ -1,0 +1,13 @@
+title = "gitleaks config — decision-intelligence-platform"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secret local dev defaults"
+regexes = [
+  '''postgresql://dip:dip@''',
+]
+paths = [
+  '''\.env\.example$''',
+]

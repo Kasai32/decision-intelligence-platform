@@ -1,0 +1,55 @@
+{
+  "name": "@dip/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Decision Intelligence Platform — frontend (Next.js)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@dip/shared": "*",
+    "next": "^16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.19.43",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
+    "ts-jest": "^29.4.11",
+    "typescript": "^5.9.3"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "rootDir": "src",
+    "testRegex": ".*\\.(spec|test)\\.tsx?$",
+    "transform": {
+      "^.+\\.(t|j)sx?$": [
+        "ts-jest",
+        {
+          "tsconfig": "<rootDir>/../tsconfig.jest.json"
+        }
+      ]
+    },
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/../jest.setup.ts"
+    ]
+  }
+}
