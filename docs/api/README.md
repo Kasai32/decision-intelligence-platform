@@ -108,9 +108,37 @@ Entirely human-authored — no algorithm generates retrospective insight. Creati
 | GET    | `/incidents/:incidentId/lessons-learned` | List lessons recorded for the incident.                                                                                                                                   |
 | GET    | `/knowledge-base/search?query=&tags=a,b` | Tenant-scoped search across all `LessonLearned` rows: `query` matches `title`/`whatHappened` case-insensitively; `tags` is a comma-separated list matched with `hasSome`. |
 
-## Integrations (Phase 6 seam, not a public API surface yet)
+## Integrations (Phase 6 — see ADR-0008, ADR-0012)
 
-`apps/api/src/integrations` defines the `IntegrationProvider` contract and a mock implementation per Phase 6 system (ServiceNow, Jira, Slack, Teams, AWS, Azure, GCP, Splunk, Datadog, Microsoft Sentinel — see ADR-0008). `IncidentsService`/`DecisionsService` broadcast to all registered providers on incident creation and decision decisions; the mocks log and report `isConfigured() === false`. No HTTP endpoints exist for this yet — it's an internal seam for Phase 6 to fill in.
+Every one of the ten systems (ServiceNow, Jira, Slack, Teams, AWS, Azure, GCP, Splunk, Datadog, Microsoft Sentinel) is a `ResilientIntegrationProvider`: circuit-breaker + retry wrapped, per-tenant configurable, falling back to an explicit `STUB_MODE` when unconfigured. No real OAuth credentials exist in this environment (see `memory/context.md`) — configuration uses encrypted fixtures.
+
+### Configuration management (`apps/api/src/integrations`)
+
+| Method | Path                                        | Min. role | Notes                                                                                                                                                                     |
+| ------ | ------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/integrations`                             | MEMBER    | Status of all ten providers for the tenant: `{ providerType, displayName, configured, status, circuitState, updatedAt }`. `status` is `ACTIVE`/`BROKEN`/`NOT_CONFIGURED`. |
+| POST   | `/integrations/:providerType/config`        | ADMIN     | `{ credentials: {...} }` — AES-256-GCM encrypted and stored (`IntegrationConfig`, upsert). Credentials are never returned by any endpoint.                                |
+| PATCH  | `/integrations/:providerType/config/status` | ADMIN     | `{ status: "ACTIVE" \| "BROKEN" }`. `404` if no config exists yet.                                                                                                        |
+| DELETE | `/integrations/:providerType/config`        | ADMIN     | Removes the config — the provider reverts to `STUB_MODE`.                                                                                                                 |
+
+Any of the ten `providerType` values (`SERVICENOW`, `JIRA`, `SLACK`, `TEAMS`, `AWS`, `AZURE`, `GCP`, `SPLUNK`, `DATADOG`, `MICROSOFT_SENTINEL`) is valid in the path; an unknown value is rejected with `400`.
+
+### Resilience behavior
+
+`IncidentsService`/`DecisionsService` broadcast to all ten providers on incident-created/decision-decided. Per provider, per tenant:
+
+- **No config, or `status: BROKEN`, or a decrypt failure** → `STUB_MODE`: `{ delivered: true, mode: "STUB_MODE", freshness: 0, reliability: "MOCK" }`, no network call attempted.
+- **Configured + healthy** → up to 3 attempts with exponential backoff per call; success → `{ mode: "LIVE", freshness: 100, reliability: "LIVE" }`.
+- **3 consecutive failed calls** (each having already retried) → the circuit breaker opens. Further calls fail fast (`{ mode: "DEGRADED", delivered: false }`, returning the last successful result if one exists, otherwise a clean zero-state response) without attempting the network — and exactly one `TimelineEvent` of type `INTEGRATION_BLOCKED` is written on the transition to `OPEN` (not on every subsequent blocked call).
+- **After `resetTimeoutMs` (30s)** the circuit allows one `HALF_OPEN` probe call — success closes it, failure reopens it and restarts the cooldown.
+
+### Webhooks (`apps/api/src/integrations/webhooks.controller.ts`)
+
+| Method | Path                                | Auth                                    | Notes                                                                                               |
+| ------ | ----------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| POST   | `/webhooks/:tenantId/:providerType` | HMAC signature (`X-Signature`), not JWT | Generic inbound alert receiver (Splunk/Jira/Sentinel-style). Body: `{ incidentId, summary, url? }`. |
+
+**Not prefixed with `/api/v1`** (external systems call it directly, like `/health`). Not behind `JwtAuthGuard` — the caller is an external system with no user session. Security boundary: `X-Signature` must be `HMAC-SHA256(rawRequestBody, webhookSecret)` in hex, where `webhookSecret` is a key inside that tenant/provider's encrypted `IntegrationConfig` credentials — compared with `crypto.timingSafeEqual`. Any mismatch, missing header, missing/broken config, or missing `webhookSecret` → `401`, and the payload is never parsed or persisted. On success, creates an `Evidence` row (system-originated, `submittedByUserId: null`) linked to the given `incidentId`, with `sourceCategory` mapped from the provider (e.g. `SPLUNK → LOG_AGGREGATOR`, `JIRA → TICKETING`).
 
 ## Health
 

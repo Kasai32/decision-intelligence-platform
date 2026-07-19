@@ -11,16 +11,17 @@ An ADR captures a single significant, hard-to-reverse architectural decision: th
 
 ## Index
 
-| ADR                                                    | Title                                                                                | Status   |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------ | -------- |
-| [0001](0001-record-architecture-decisions.md)          | Record architecture decisions as ADRs                                                | Accepted |
-| [0002](0002-core-technology-stack.md)                  | Core technology stack (TypeScript/NestJS/Next.js/PostgreSQL/npm workspaces)          | Accepted |
-| [0003](0003-orm-prisma.md)                             | ORM: Prisma                                                                          | Accepted |
-| [0004](0004-multi-tenancy-shared-schema.md)            | Multi-tenancy: shared schema with `tenantId` scoping                                 | Accepted |
-| [0005](0005-self-hosted-jwt-auth.md)                   | Authentication: self-hosted email/password + JWT                                     | Accepted |
-| [0006](0006-incident-decision-domain-model.md)         | Incident/Decision/Evidence/TimelineEvent/Action domain model                         | Accepted |
-| [0007](0007-state-transition-guards.md)                | State transition guard engine + Principle 1 (AI decides nothing alone)               | Accepted |
-| [0008](0008-phase6-integration-abstraction.md)         | Phase 6 integration abstraction (mock providers)                                     | Accepted |
-| [0009](0009-command-center-no-blank-state.md)          | Executive Command Center: server-shaped "no blank state" contract                    | Accepted |
-| [0010](0010-decision-intelligence-confidence-model.md) | Decision Intelligence Engine: multidimensional confidence model + AI Output Contract | Accepted |
-| [0011](0011-phase5-reporting-architecture.md)          | Phase 5 Reporting: immutable generated artifacts, factual auto-assembly              | Accepted |
+| ADR                                                      | Title                                                                                | Status   |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------- |
+| [0001](0001-record-architecture-decisions.md)            | Record architecture decisions as ADRs                                                | Accepted |
+| [0002](0002-core-technology-stack.md)                    | Core technology stack (TypeScript/NestJS/Next.js/PostgreSQL/npm workspaces)          | Accepted |
+| [0003](0003-orm-prisma.md)                               | ORM: Prisma                                                                          | Accepted |
+| [0004](0004-multi-tenancy-shared-schema.md)              | Multi-tenancy: shared schema with `tenantId` scoping                                 | Accepted |
+| [0005](0005-self-hosted-jwt-auth.md)                     | Authentication: self-hosted email/password + JWT                                     | Accepted |
+| [0006](0006-incident-decision-domain-model.md)           | Incident/Decision/Evidence/TimelineEvent/Action domain model                         | Accepted |
+| [0007](0007-state-transition-guards.md)                  | State transition guard engine + Principle 1 (AI decides nothing alone)               | Accepted |
+| [0008](0008-phase6-integration-abstraction.md)           | Phase 6 integration abstraction (mock providers)                                     | Accepted |
+| [0009](0009-command-center-no-blank-state.md)            | Executive Command Center: server-shaped "no blank state" contract                    | Accepted |
+| [0010](0010-decision-intelligence-confidence-model.md)   | Decision Intelligence Engine: multidimensional confidence model + AI Output Contract | Accepted |
+| [0011](0011-phase5-reporting-architecture.md)            | Phase 5 Reporting: immutable generated artifacts, factual auto-assembly              | Accepted |
+| [0012](0012-integration-resilience-and-tenant-config.md) | Integration resilience engine + per-tenant encrypted configuration                   | Accepted |

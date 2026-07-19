@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Status: Living document. Reflects Phase 1 (Foundation), Phase 2 (Platform core), Phase 3 (Executive Command Center / Incident & Decision domain model), Phase 4 (Decision Intelligence Engine — multidimensional confidence model), and Phase 5 (Reporting — Executive Briefs, Decision Reports, Lessons Learned, Knowledge Base), all complete; will be extended as each subsequent phase in [PREREQUIS.md](../../PREREQUIS.md) lands. Stack decisions here are recorded with full rationale in [DECISION_LOG.md](../../DECISION_LOG.md) and, where architecturally significant, in an [ADR](../adr/README.md).
+Status: Living document. Reflects Phase 1 (Foundation), Phase 2 (Platform core), Phase 3 (Executive Command Center / Incident & Decision domain model), Phase 4 (Decision Intelligence Engine — multidimensional confidence model), Phase 5 (Reporting — Executive Briefs, Decision Reports, Lessons Learned, Knowledge Base), and Phase 6 (Integration resilience engine + per-tenant encrypted configuration), all complete; will be extended as the roadmap in [PREREQUIS.md](../../PREREQUIS.md) grows. Stack decisions here are recorded with full rationale in [DECISION_LOG.md](../../DECISION_LOG.md) and, where architecturally significant, in an [ADR](../adr/README.md).
 
 ## 1. System purpose
 
@@ -40,8 +40,10 @@ Everything below is designed so Phases 2–6 are additive (new modules/packages)
                          │  ── Decisions module      │  <- Phase 3 (done — Principle 1 guard)
                          │  ── Evidence module       │  <- Phase 3 (done)
                          │  ── Actions module        │  <- Phase 3 (done)
-                         │  ── Integrations registry │  <- Phase 3 mocks (done, ADR-0008),
-                         │     (10 mock providers)   │     Phase 6 fills in real ones
+                         │  ── Integrations registry │  <- Phase 6 (done — ADR-0012)
+                         │     (10 resilient,        │     circuit breaker + retry,
+                         │     per-tenant providers)  │     per-tenant encrypted config
+                         │  ── Webhooks (HMAC)       │  <- Phase 6 (done — ADR-0012)
                          │  ── Decision Intelligence │  <- Phase 4 (done — ADR-0010)
                          │     Engine (4-dim scoring)│     confidence model, AI Output Contract
                          │  ── Executive Briefs /    │  <- Phase 5 (done — ADR-0011)
@@ -60,16 +62,17 @@ Everything below is designed so Phases 2–6 are additive (new modules/packages)
                          │  IntelligenceAnalysis /   │
                          │  ExecutiveBrief /         │
                          │  DecisionReport /         │
-                         │  LessonLearned            │
+                         │  LessonLearned /          │
+                         │  IntegrationConfig        │
                          └───────────────────────────┘
 
            packages/shared  — TS types/DTOs/contracts shared by web + api
                               (now includes Incident/Decision/CommandCenterSummary)
 ```
 
-Full endpoint reference: [docs/api/README.md](../api/README.md). Design rationale: ADR-0003 (Prisma), ADR-0004 (shared-schema multi-tenancy), ADR-0005 (self-hosted JWT auth), ADR-0006 (Incident/Decision/Evidence/TimelineEvent/Action domain model), ADR-0007 (state transition guards + Principle 1), ADR-0008 (Phase 6 integration mocks), ADR-0009 (Command Center no-blank-state contract), ADR-0010 (Decision Intelligence Engine confidence model), ADR-0011 (Phase 5 Reporting architecture).
+Full endpoint reference: [docs/api/README.md](../api/README.md). Design rationale: ADR-0003 (Prisma), ADR-0004 (shared-schema multi-tenancy), ADR-0005 (self-hosted JWT auth), ADR-0006 (Incident/Decision/Evidence/TimelineEvent/Action domain model), ADR-0007 (state transition guards + Principle 1), ADR-0008 (Phase 6 integration abstraction), ADR-0009 (Command Center no-blank-state contract), ADR-0010 (Decision Intelligence Engine confidence model), ADR-0011 (Phase 5 Reporting architecture), ADR-0012 (integration resilience + per-tenant encrypted config).
 
-External integrations (Phase 6: ServiceNow, Jira, Slack, Teams, AWS/Azure/GCP, Splunk, Datadog, Microsoft Sentinel) are, as of Phase 3, ten `MockIntegrationProvider` instances behind `IntegrationsRegistryService` (see ADR-0008) — `IncidentsService`/`DecisionsService` already broadcast to all of them on incident-created/decision-decided; Phase 6 swaps mocks for real implementations one at a time without touching either service.
+External integrations (ServiceNow, Jira, Slack, Teams, AWS/Azure/GCP, Splunk, Datadog, Microsoft Sentinel) are ten `ResilientIntegrationProvider` instances (circuit breaker + retry wrapping a `ConfigurableIntegrationProvider`), one lazily built and cached per `(tenantId, providerKey)` by `IntegrationsRegistryService` (see ADR-0012, evolved from Phase 3's tenant-unaware mocks, ADR-0008). No real OAuth credentials exist in this environment (see `memory/context.md`) — a tenant configures a provider via `POST /integrations/:providerType/config` with AES-256-GCM-encrypted (fixture) credentials; unconfigured providers run in `STUB_MODE`. `IncidentsService`/`DecisionsService` broadcast to all of them on incident-created/decision-decided; three consecutive failures open a provider's circuit breaker (degraded responses, one `INTEGRATION_BLOCKED` `TimelineEvent`), recovering automatically after a cooldown probe succeeds.
 
 ## 3. Monorepo layout
 
@@ -117,14 +120,22 @@ infra/
 - **Auditability:** every `Incident`/`Decision`/`Evidence`/`Action` mutation writes a `TimelineEvent` row in the same operation (see ADR-0006) — `TimelineEvent` is not directly writable via the API, so the timeline can be trusted to reflect what services actually did.
 - **State transition integrity:** `apps/api/src/common/state-machine` provides a single, reusable `assertValidTransition` guard; every legal transition (including same-state) must be explicitly listed per entity — there is no implicit no-op (see ADR-0007 and the bug this caught, in DECISION_LOG.md).
 - **Principle 1 — the AI decides nothing alone:** `DecisionsService.decide()` is the only code path that can set a `Decision` to `DECIDED`, and it hard-requires a non-empty `humanDecision` plus a `decidedByUserId` that resolves to a real member of the tenant. See ADR-0007.
-- **Integration isolation:** each Phase 6 integration is a `MockIntegrationProvider` (real implementations later) behind `IntegrationsRegistryService`; a provider that throws is caught and logged per-provider, never allowed to fail the triggering request. See ADR-0008.
+- **Integration isolation + graceful degradation:** each of the ten integrations is independently circuit-breaker-protected (3 consecutive failures → fail fast, no network saturation during an outage) and never allowed to fail the triggering request — `broadcast()` catches any unexpected throw per-provider. See ADR-0008, ADR-0012.
+- **No self-attested integration health:** a tenant's integration credentials are AES-256-GCM encrypted at rest and only ever decrypted server-side inside `IntegrationsRegistryService`; no endpoint returns them. An unconfigured or broken integration is never silently treated as healthy — it reports an explicit `STUB_MODE`/`DEGRADED` mode with `freshness: 0, reliability: "MOCK"`. See ADR-0012.
+- **Webhook authenticity:** the inbound webhook endpoint's security boundary is an HMAC-SHA256 signature over the raw request body (`crypto.timingSafeEqual`, not `JwtAuthGuard` — the caller is an external system), rejecting anything unsigned/mis-signed before the payload is ever parsed. See ADR-0012.
 - **No blank state:** the Executive Command Center's "what to show" logic is computed once, server-side (`GET /incidents/:id/command-center`), not reimplemented per frontend surface. See ADR-0009.
 - **No black-box confidence:** the Decision Intelligence Engine reports four independent, auditable dimensions (`evidenceCompleteness`, `sourceReliability`, `dataFreshness`, `aiCertainty`) — never merged into a single score, and never accepted from a client. Each is a deterministic function of real `Evidence` rows; `aiCertainty` is explicitly documented as a heuristic, not a trained-model output, since no model or historical corpus exists. See ADR-0010.
 - **No fabricated narrative in reports:** `ExecutiveBrief`/`DecisionReport` are immutable point-in-time snapshots generated on `POST`; every field except an optional `additionalNotes` is a real value assembled from `Incident`/`Decision`/`Evidence`/`IntelligenceAnalysis` rows via a small deterministic template — never invented prose. `LessonLearned` content is entirely human-authored and gated to `Incident.status = CLOSED`. See ADR-0011.
 
 ## 6. What's not built yet
 
-No real external integrations (Phase 6 — the mocks exist, see above). Phases 1–5 are complete: Foundation, Platform core, the Incident/Decision domain model with its guards and Command Center, the Decision Intelligence Engine's confidence model, and Reporting (Executive Briefs, Decision Reports, Lessons Learned, Knowledge Base search). Neither the Decision Intelligence Engine nor Reporting generate qualitative narrative via any algorithm — no LLM integration exists in this environment; qualitative content is either supplied by a human caller (`POST /incidents/:id/analyze`'s judgment fields, `additionalNotes` on briefs/reports, all of a Lesson Learned) or assembled from real facts via deterministic templates, never fabricated. See [PREREQUIS.md](../../PREREQUIS.md) for what Phase 6 adds, and `memory/context.md` for what's explicitly blocked pending user input.
+All six roadmap phases have a complete MVP. What's explicitly still missing, by design, given constraints of this environment (see `memory/context.md`):
+
+- **Real integration credentials.** All ten Phase 6 providers are exercised with encrypted fixtures and a simulated network layer (`NetworkSimulator`), not real ServiceNow/Slack/etc. API calls — no OAuth app registrations exist here. A real implementation only needs to implement `NetworkSimulator`; nothing else in the resilience/config stack changes.
+- **Real AI/LLM-generated narrative.** Neither the Decision Intelligence Engine (Phase 4) nor Reporting (Phase 5) generate qualitative narrative via any algorithm. Qualitative content is either supplied by a human caller (`POST /incidents/:id/analyze`'s judgment fields, `additionalNotes` on briefs/reports, all of a Lesson Learned) or assembled from real facts via deterministic templates — never fabricated.
+- **Cross-instance circuit-breaker state.** Breaker state lives in-process memory; a multi-replica deployment would need a shared store (e.g. Redis) for consistent breaker state across instances — noted in ADR-0012, not built.
+
+See [PREREQUIS.md](../../PREREQUIS.md) for the full roadmap and `memory/context.md` for what's explicitly blocked pending user input (real credentials, a real LLM provider decision).
 
 ## 7. Change process
 

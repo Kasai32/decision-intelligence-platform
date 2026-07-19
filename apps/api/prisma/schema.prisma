@@ -32,6 +32,7 @@ model Tenant {
   executiveBriefs      ExecutiveBrief[]
   decisionReports      DecisionReport[]
   lessonsLearned       LessonLearned[]
+  integrationConfigs   IntegrationConfig[]
 
   @@map("tenants")
 }
@@ -164,6 +165,7 @@ enum TimelineEventType {
   EXECUTIVE_BRIEF_GENERATED
   DECISION_REPORT_GENERATED
   LESSON_LEARNED_CREATED
+  INTEGRATION_BLOCKED
 }
 
 enum ActionStatus {
@@ -470,4 +472,52 @@ model LessonLearned {
   @@index([tenantId])
   @@index([incidentId])
   @@map("lessons_learned")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6 — Integration resilience + per-tenant configuration (see ADR-0012)
+// ---------------------------------------------------------------------------
+
+/// The ten Phase 6 enterprise systems (see ADR-0008 / ADR-0012). Moved into
+/// the Prisma schema (from a hand-written TS enum) so @prisma/client is the
+/// single source of truth — apps/api/src/integrations imports it rather
+/// than redeclaring it.
+enum IntegrationKey {
+  SERVICENOW
+  JIRA
+  SLACK
+  TEAMS
+  AWS
+  AZURE
+  GCP
+  SPLUNK
+  DATADOG
+  MICROSOFT_SENTINEL
+}
+
+enum IntegrationConfigStatus {
+  ACTIVE
+  BROKEN
+}
+
+/// A tenant's configuration for one integration. Credentials are never
+/// stored in plaintext or in environment variables (see ADR-0012) — always
+/// AES-256-GCM encrypted via CredentialsEncryptionService. Absent or
+/// `BROKEN` config means the provider runs in STUB_MODE (see
+/// ConfigurableIntegrationProvider).
+model IntegrationConfig {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  providerType         IntegrationKey
+  encryptedCredentials String
+  status               IntegrationConfigStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, providerType])
+  @@index([tenantId])
+  @@map("integration_configs")
 }

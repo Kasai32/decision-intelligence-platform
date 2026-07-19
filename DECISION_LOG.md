@@ -417,3 +417,39 @@ infra/          — Docker, CI/CD-adjacent infra config
 **Status:** Done. All of `lint`, `format:check`, `test` (119 tests across 3 workspaces), and `build` pass; `npm audit` reports 0 vulnerabilities.
 
 ---
+
+## 2026-07-19 — Phase 6 unblocked: resilience engine + per-tenant config replaces the "need real OAuth" constraint
+
+**Context:** The user supplied a detailed, three-part spec for Phase 6: (A) a circuit-breaker + retry resilience engine wrapping `IntegrationProvider`, (B) per-tenant encrypted credentials in a new `IntegrationConfig` table with automatic `STUB_MODE` fallback, (C) HMAC-validated inbound webhooks. Explicit instruction: no real OAuth tokens needed — use encrypted fixtures and simulated network failures to prove the circuit breaker, not real API calls. This directly resolves the blocker recorded after Phase 3 (`memory/context.md`: "Phase 6 cannot be built for real without credentials").
+
+**Decision:** Full rationale in [ADR-0012](docs/adr/0012-integration-resilience-and-tenant-config.md). Summary: generic `CircuitBreaker`/`withRetry` primitives (`apps/api/src/common/resilience/`); `IntegrationProvider` methods now return a real `IntegrationCallResult` (`delivered`/`mode`/`freshness`/`reliability`) instead of `void`, so there is something to cache/degrade; `ConfigurableIntegrationProvider` falls back to `STUB_MODE` (`freshness: 0, reliability: 'MOCK'`) when a tenant has no credentials or `status: BROKEN`; `ResilientIntegrationProvider` wraps it with the circuit breaker and caches the last successful result for degraded responses; `IntegrationsRegistryService` is rewritten to be tenant-aware and DB-backed, caching one resilient provider per `(tenantId, providerKey)` so breaker state actually persists across calls; `TimelineEventType.INTEGRATION_BLOCKED` is written exactly once per CLOSED/HALF_OPEN → OPEN transition; credentials are AES-256-GCM encrypted via Node's built-in `crypto` (no new dependency); a generic `POST /webhooks/:tenantId/:providerType` validates an HMAC-SHA256 signature over the raw request body with `crypto.timingSafeEqual`, rejecting anything that doesn't match before the payload is ever parsed.
+
+**Rationale:** Same principle as every prior phase's guard work: prove the failure-handling code path for real, not just structurally. A resilience engine that's never actually forced to fail is unverified. The plan (see later entries) is to test it with an injected network simulator that deterministically fails N times, not a random flake.
+
+**Status:** In progress — see subsequent entries for implementation, tests, and live verification.
+
+---
+
+## 2026-07-19 — `FixtureNetworkSimulator`: a documented failure-injection hook, so the circuit breaker can be proven live, not just in unit tests
+
+**Context:** The production `NetworkSimulator` always succeeds (there's no real endpoint to fail against). That's correct for unit tests (which inject their own failing simulator via DI), but it means the resilience engine could not be demonstrated end-to-end against the real running API — every prior phase's verification standard in this project has included a live `docker compose` proof, and this one shouldn't be an exception just because the thing being tested is "what happens when an external system is down."
+
+**Decision:** Renamed the production default to `FixtureNetworkSimulator` and gave it one documented behavior: if a tenant's own (fixture) credentials contain `simulateFailure: true`, the call throws `NetworkSimulationError`; otherwise it's a no-op success. This is not a hidden backdoor — it only ever reacts to a value the tenant explicitly put into their own encrypted credentials via `POST /integrations/:type/config`, the same way a real integration's "sandbox mode" flag might work.
+
+**Rationale:** This makes the entire resilience story — configure with fixture credentials, watch it succeed, flip `simulateFailure` on, watch 3 consecutive failures trip the circuit and produce an `INTEGRATION_BLOCKED` `TimelineEvent`, watch it recover after the cooldown — independently verifiable by a human hitting the real HTTP API, not just readable in test code. See the live-verification entry below for the actual run.
+
+**Status:** Done. 3 new tests (160 total in `apps/api`).
+
+---
+
+## 2026-07-19 — Phase 6 complete and verified end-to-end, including a live-triggered circuit breaker and a live webhook forgery attempt
+
+**Context:** Roadmap Phase 6 deliverable: `IntegrationConfig` table with strict tenant isolation, circuit breaker + retry, graceful degradation to an explicit `STUB_MODE` with an `INTEGRATION_BLOCKED` `TimelineEvent`, adversarial resilience tests, and HMAC-secured webhooks (see ADR-0012).
+
+**Decision:** Phase 6 is done: `IntegrationConfig`/`IntegrationConfigStatus`/`IntegrationKey` (moved to Prisma) + migration; `CircuitBreaker`/`withRetry` generic primitives (12 tests); `CredentialsEncryptionService` (AES-256-GCM, 5 tests); `ConfigurableIntegrationProvider` + `ResilientIntegrationProvider` (9 tests, including the core adversarial "3 consecutive simulated failures trips the breaker, fails fast without further network calls, returns cached last-known-good, recovers after the cooldown" sequence); `IntegrationsRegistryService` rewritten as a tenant-aware, DB-backed, cached registry (9 tests, including "writes exactly one `INTEGRATION_BLOCKED` event on the OPEN transition, not on every subsequent blocked call"); `IntegrationConfigService` + `IntegrationsController` for config CRUD (6 tests); `WebhookSignatureGuard` + `WebhooksController` for HMAC-secured inbound alerts (8 adversarial tests: forged signature, tampered body, missing config, unknown provider, missing webhook secret). 160 tests total in `apps/api` (167 across the monorepo).
+
+**Rationale — live adversarial verification against the real running stack, not just unit tests:** Before committing, ran a full sequence against `docker compose up --build`: (1) checked `/integrations` before any config → `NOT_CONFIGURED`/`STUB_MODE` for all ten; (2) configured Slack with healthy fixture credentials → `ACTIVE`, `circuitState: CLOSED`; (3) reconfigured Slack with `simulateFailure: true` and created three incidents in a row (each triggers a real `broadcast()` call) → circuit stayed `CLOSED` after failures 1 and 2, then flipped to `OPEN` on exactly the 3rd, with a `TimelineEvent` of type `INTEGRATION_BLOCKED` on that incident's timeline containing the degraded result; (4) created a 4th incident while `OPEN` → confirmed zero additional `INTEGRATION_BLOCKED` events (the "exactly once per transition" rule holds live, not just in the mocked unit test) and the circuit stayed `OPEN`; (5) confirmed `/integrations` never leaks the raw fixture credential value in any response; (6) confirmed unauthenticated access to `/integrations` is `401`; (7) configured Splunk with a `webhookSecret`, computed a real `HMAC-SHA256` signature with Node's `crypto` from the shell, and POSTed to `/webhooks/:tenantId/SPLUNK` — a correctly signed alert was accepted (`201`, a real `Evidence` row created with `submittedByUserId: null`) and a forged signature was rejected (`401 "Invalid signature"`) before any payload processing.
+
+**Status:** Done. All of `lint`, `format:check`, `test` (167 tests across 3 workspaces), and `build` pass; `npm audit` reports 0 vulnerabilities. All six `PREREQUIS.md` phases now have a working MVP.
+
+---

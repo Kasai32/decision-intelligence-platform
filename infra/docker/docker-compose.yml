@@ -29,6 +29,8 @@ services:
       # Dev-only default (see ADR-0005 / apps/api/.env.example) — override for any non-local environment.
       JWT_ACCESS_SECRET: dev-only-change-me
       JWT_ACCESS_TTL_SECONDS: 900
+      # Dev-only default (see ADR-0012 / apps/api/.env.example) — override for any non-local environment.
+      INTEGRATION_CREDENTIALS_ENCRYPTION_KEY: dev-only-change-me
     ports:
       - '3001:3001'
     depends_on:

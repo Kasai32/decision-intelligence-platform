@@ -2,7 +2,7 @@
 
 Enterprise decision intelligence and incident command platform. Tracks incidents and decisions, generates evidence-backed recommendations, and produces executive-level reporting, integrating with the tools enterprises already run.
 
-Status: **Phase 5 — Reporting** complete (see [PREREQUIS.md](PREREQUIS.md) for the full roadmap). Phases 1 (Foundation), 2 (Auth/RBAC/Tenant Management), 3 (Incident/Decision domain model, state transition guards, Executive Command Center), 4 (multidimensional confidence model — evidence completeness, source reliability, data freshness, AI certainty, never merged into one score), and 5 (Executive Briefs, Decision Reports, Lessons Learned, Knowledge Base — all factual/human-authored, no fabricated narrative) are done and verified end-to-end — see [DECISION_LOG.md](DECISION_LOG.md). No real external integrations yet (Phase 6) — Phase 6's integrations exist only as mocked interfaces (ADR-0008).
+Status: **All 6 roadmap phases have a working MVP** (see [PREREQUIS.md](PREREQUIS.md) for the full roadmap). Foundation, Auth/RBAC/Tenant Management, the Incident/Decision domain model with its guards and Executive Command Center, the multidimensional Decision Intelligence confidence model, Reporting (Executive Briefs/Decision Reports/Lessons Learned/Knowledge Base), and Phase 6's integration resilience engine (circuit breaker + retry, per-tenant AES-256-GCM-encrypted config, HMAC-validated webhooks) are all done and verified end-to-end — see [DECISION_LOG.md](DECISION_LOG.md). No real integration credentials or LLM provider are wired up (none exist in this environment — see `memory/context.md`); everything real-world-facing is built against a documented, swappable seam.
 
 ## Repository map
 
@@ -35,7 +35,7 @@ Requires Node.js >= 20 and Docker.
 
 ```bash
 npm install
-cp apps/api/.env.example apps/api/.env
+cp apps/api/.env.example apps/api/.env   # set real JWT_ACCESS_SECRET / INTEGRATION_CREDENTIALS_ENCRYPTION_KEY for non-local use
 docker compose -f infra/docker/docker-compose.yml up -d postgres   # starts PostgreSQL only
 npm run prisma:migrate:dev --workspace apps/api                    # applies migrations locally
 npm run dev:api    # http://localhost:3001/health, Swagger at /api/v1/docs
