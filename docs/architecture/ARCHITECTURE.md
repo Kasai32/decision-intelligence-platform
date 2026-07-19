@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Status: Living document. Reflects Phase 1 (Foundation) and Phase 2 (Platform core — Auth, RBAC, Tenant Management, API Gateway, Core Database), both complete; will be extended as each subsequent phase in [PREREQUIS.md](../../PREREQUIS.md) lands. Stack decisions here are recorded with full rationale in [DECISION_LOG.md](../../DECISION_LOG.md) and, where architecturally significant, in an [ADR](../adr/README.md).
+Status: Living document. Reflects Phase 1 (Foundation), Phase 2 (Platform core), and Phase 3 (Executive Command Center / Incident & Decision domain model), all complete; will be extended as each subsequent phase in [PREREQUIS.md](../../PREREQUIS.md) lands. Stack decisions here are recorded with full rationale in [DECISION_LOG.md](../../DECISION_LOG.md) and, where architecturally significant, in an [ADR](../adr/README.md).
 
 ## 1. System purpose
 
@@ -36,23 +36,32 @@ Everything below is designed so Phases 2–6 are additive (new modules/packages)
                          │  ── Auth module (JWT)     │  <- Phase 2 (done)
                          │  ── RBAC (guards/roles)   │  <- Phase 2 (done)
                          │  ── Tenants module        │  <- Phase 2 (done)
+                         │  ── Incidents module      │  <- Phase 3 (done)
+                         │  ── Decisions module      │  <- Phase 3 (done — Principle 1 guard)
+                         │  ── Evidence module       │  <- Phase 3 (done)
+                         │  ── Actions module        │  <- Phase 3 (done)
+                         │  ── Integrations registry │  <- Phase 3 mocks (done, ADR-0008),
+                         │     (10 mock providers)   │     Phase 6 fills in real ones
                          │  ── Decision Intel module │  <- Phase 4
                          │  ── Reporting module      │  <- Phase 5
-                         │  ── Integrations modules  │  <- Phase 6
                          └────────────┬─────────────┘
                                       │ Prisma
                          ┌────────────▼─────────────┐
                          │       PostgreSQL          │
                          │  Tenant / User /          │
                          │  Membership / RefreshToken│
+                         │  Incident / Decision /    │
+                         │  Evidence / TimelineEvent │
+                         │  / Action                 │
                          └───────────────────────────┘
 
            packages/shared  — TS types/DTOs/contracts shared by web + api
+                              (now includes Incident/Decision/CommandCenterSummary)
 ```
 
-Full endpoint reference: [docs/api/README.md](../api/README.md). Auth/tenancy design rationale: ADR-0003 (Prisma), ADR-0004 (shared-schema multi-tenancy), ADR-0005 (self-hosted JWT auth).
+Full endpoint reference: [docs/api/README.md](../api/README.md). Design rationale: ADR-0003 (Prisma), ADR-0004 (shared-schema multi-tenancy), ADR-0005 (self-hosted JWT auth), ADR-0006 (Incident/Decision/Evidence/TimelineEvent/Action domain model), ADR-0007 (state transition guards + Principle 1), ADR-0008 (Phase 6 integration mocks), ADR-0009 (Command Center no-blank-state contract).
 
-External integrations (Phase 6: ServiceNow, Jira, Slack, Teams, AWS/Azure/GCP, Splunk, Datadog, Microsoft Sentinel) attach as dedicated NestJS modules behind the API Gateway module — each integration is isolated so a failure or credential issue in one does not affect others.
+External integrations (Phase 6: ServiceNow, Jira, Slack, Teams, AWS/Azure/GCP, Splunk, Datadog, Microsoft Sentinel) are, as of Phase 3, ten `MockIntegrationProvider` instances behind `IntegrationsRegistryService` (see ADR-0008) — `IncidentsService`/`DecisionsService` already broadcast to all of them on incident-created/decision-decided; Phase 6 swaps mocks for real implementations one at a time without touching either service.
 
 ## 3. Monorepo layout
 
@@ -97,12 +106,15 @@ infra/
 - **Multi-tenancy:** every tenant-owned Prisma model carries `tenantId`; all `apps/api` queries scope by it via the authenticated request's JWT claims (`AuthenticatedUser.tenantId`), never a client-supplied tenant ID. See ADR-0004.
 - **AuthN/AuthZ:** `JwtAuthGuard` (authentication) and `RolesGuard` + `@Roles(...)` (authorization, `OWNER > ADMIN > MEMBER` rank) are applied at the controller/route level, not inside handler bodies. See `apps/api/src/auth/guards/`.
 - **API Gateway concerns:** global `ValidationPipe` (whitelist + transform), global `AllExceptionsFilter` (consistent JSON error shape), versioned `/api/v1` prefix, OpenAPI/Swagger at `/api/v1/docs`. See `apps/api/src/main.ts`.
-- **Auditability:** `createdAt`/`updatedAt` exist on every model now; richer per-action attribution (who did what, when) is still open for Phase 4/5 (Evidence Collection, Decision Reports, Lessons Learned) and should be designed before those phases add mutating endpoints beyond auth/tenant management.
-- **Integration isolation:** each Phase 6 integration is its own NestJS module with its own credentials/config namespace, so one integration's outage/misconfiguration cannot cascade.
+- **Auditability:** every `Incident`/`Decision`/`Evidence`/`Action` mutation writes a `TimelineEvent` row in the same operation (see ADR-0006) — `TimelineEvent` is not directly writable via the API, so the timeline can be trusted to reflect what services actually did.
+- **State transition integrity:** `apps/api/src/common/state-machine` provides a single, reusable `assertValidTransition` guard; every legal transition (including same-state) must be explicitly listed per entity — there is no implicit no-op (see ADR-0007 and the bug this caught, in DECISION_LOG.md).
+- **Principle 1 — the AI decides nothing alone:** `DecisionsService.decide()` is the only code path that can set a `Decision` to `DECIDED`, and it hard-requires a non-empty `humanDecision` plus a `decidedByUserId` that resolves to a real member of the tenant. See ADR-0007.
+- **Integration isolation:** each Phase 6 integration is a `MockIntegrationProvider` (real implementations later) behind `IntegrationsRegistryService`; a provider that throws is caught and logged per-provider, never allowed to fail the triggering request. See ADR-0008.
+- **No blank state:** the Executive Command Center's "what to show" logic is computed once, server-side (`GET /incidents/:id/command-center`), not reimplemented per frontend surface. See ADR-0009.
 
 ## 6. What's not built yet
 
-No business/incident/decision data model, no dashboards, no Decision Intelligence Engine, no reporting, no external integrations. Phase 2's deliverable is Auth + RBAC + Tenant Management + API Gateway + Core Database only — see [PREREQUIS.md](../../PREREQUIS.md) for what Phases 3–6 add, and `memory/context.md` for what's explicitly blocked pending user input (Phase 4 algorithm design, Phase 6 credentials).
+No Decision Intelligence Engine (Recommendation Engine, Confidence Model, Business Impact Analysis — Phase 4), no reporting (Phase 5), no real external integrations (Phase 6 — the mocks exist, see above). Phases 1–3 are complete: Foundation, Platform core (Auth/RBAC/Tenant Management), and the Incident/Decision domain model with its guards and the Command Center UI contract. See [PREREQUIS.md](../../PREREQUIS.md) for what Phases 4–6 add, and `memory/context.md` for what's explicitly blocked pending user input (Phase 4 algorithm design, Phase 6 credentials).
 
 ## 7. Change process
 

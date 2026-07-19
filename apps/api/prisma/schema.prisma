@@ -23,6 +23,12 @@ model Tenant {
   updatedAt DateTime     @updatedAt
   members   Membership[]
 
+  incidents      Incident[]
+  decisions      Decision[]
+  evidence       Evidence[]
+  timelineEvents TimelineEvent[]
+  actions        Action[]
+
   @@map("tenants")
 }
 
@@ -37,6 +43,13 @@ model User {
   updatedAt     DateTime       @updatedAt
   memberships   Membership[]
   refreshTokens RefreshToken[]
+
+  createdIncidents  Incident[]      @relation("IncidentCreatedBy")
+  createdDecisions  Decision[]      @relation("DecisionCreatedBy")
+  decidedDecisions  Decision[]      @relation("DecisionDecidedBy")
+  submittedEvidence Evidence[]      @relation("EvidenceSubmittedBy")
+  timelineActions   TimelineEvent[] @relation("TimelineEventActor")
+  assignedActions   Action[]        @relation("ActionAssignedTo")
 
   @@map("users")
 }
@@ -72,4 +85,204 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Incident / Decision domain model (see ADR-0006, ADR-0007)
+// ---------------------------------------------------------------------------
+
+enum IncidentStatus {
+  OPEN
+  MITIGATED
+  RESOLVED
+  CLOSED
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DecisionStatus {
+  OPEN
+  DECIDED
+  CANCELLED
+}
+
+enum EvidenceType {
+  LOG
+  METRIC
+  HUMAN_INPUT
+  EXTERNAL_LINK
+  OTHER
+}
+
+enum TimelineEventType {
+  INCIDENT_CREATED
+  INCIDENT_STATUS_CHANGED
+  DECISION_OPENED
+  DECISION_DECIDED
+  DECISION_CANCELLED
+  EVIDENCE_ADDED
+  ACTION_CREATED
+  ACTION_STATUS_CHANGED
+}
+
+enum ActionStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+/// An incident being tracked and worked through the platform. Strictly
+/// tenant-scoped (see ADR-0004 / ADR-0006) via `tenantId`.
+model Incident {
+  id          String           @id @default(uuid())
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  status      IncidentStatus   @default(OPEN)
+  severity    IncidentSeverity @default(MEDIUM)
+
+  createdByUserId String
+  createdBy       User      @relation("IncidentCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  closedAt        DateTime?
+
+  decisions      Decision[]
+  evidence       Evidence[]
+  timelineEvents TimelineEvent[]
+  actions        Action[]
+
+  @@index([tenantId])
+  @@map("incidents")
+}
+
+/// A decision to be made (or made) in response to an incident. `status`
+/// can only become DECIDED through DecisionsService.decide(), which
+/// enforces Principle 1 — see ADR-0007: a real, tenant-member human must
+/// be named in `decidedByUserId` alongside a non-empty `humanDecision`.
+model Decision {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  question String
+  status   DecisionStatus @default(OPEN)
+
+  /// The human-authored decision text. Null until `status = DECIDED`.
+  humanDecision String?
+  rationale     String?
+
+  /// The named human stakeholder who made the decision (Principle 1 — never
+  /// null when status = DECIDED, enforced in DecisionsService, not the DB).
+  decidedByUserId String?
+  decidedBy       User?     @relation("DecisionDecidedBy", fields: [decidedByUserId], references: [id])
+  decidedAt       DateTime?
+
+  createdByUserId String
+  createdBy       User     @relation("DecisionCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  evidence       Evidence[]
+  timelineEvents TimelineEvent[]
+  actions        Action[]
+
+  @@index([tenantId])
+  @@index([incidentId])
+  @@map("decisions")
+}
+
+/// A piece of evidence backing an incident and/or a specific decision.
+/// `submittedByUserId` is nullable because evidence may originate from an
+/// automated integration (see ADR-0008), not only a human submitter.
+model Evidence {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  decisionId String?
+  decision   Decision? @relation(fields: [decisionId], references: [id], onDelete: SetNull)
+
+  type    EvidenceType
+  source  String
+  summary String
+  url     String?
+
+  submittedByUserId String?
+  submittedBy       User?    @relation("EvidenceSubmittedBy", fields: [submittedByUserId], references: [id])
+  createdAt         DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([incidentId])
+  @@map("evidence")
+}
+
+/// Append-only audit trail for an incident (and optionally a specific
+/// decision). Not directly writable via the API — every service that
+/// mutates Incident/Decision/Evidence/Action state writes its own row
+/// here in the same operation (see ADR-0006).
+model TimelineEvent {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  decisionId String?
+  decision   Decision? @relation(fields: [decisionId], references: [id], onDelete: SetNull)
+
+  type        TimelineEventType
+  description String
+
+  /// Null for system-generated events with no human actor.
+  actorUserId String?
+  actor       User?    @relation("TimelineEventActor", fields: [actorUserId], references: [id])
+  metadata    Json?
+  occurredAt  DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([incidentId])
+  @@map("timeline_events")
+}
+
+/// A follow-up task arising from an incident and/or a specific decision.
+model Action {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  decisionId String?
+  decision   Decision? @relation(fields: [decisionId], references: [id], onDelete: SetNull)
+
+  title  String
+  status ActionStatus @default(PENDING)
+
+  assignedToUserId String?
+  assignedTo       User?     @relation("ActionAssignedTo", fields: [assignedToUserId], references: [id])
+  dueAt            DateTime?
+  completedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([incidentId])
+  @@map("actions")
 }

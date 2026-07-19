@@ -29,6 +29,50 @@ All routes require a valid access token (`JwtAuthGuard`) and operate on the call
 
 Role hierarchy (`apps/api/src/auth/guards/roles.guard.ts`): `OWNER > ADMIN > MEMBER`, higher rank subsumes lower on `@Roles(...)`-gated routes.
 
+## Incidents (`apps/api/src/incidents`)
+
+All routes require a valid access token and are scoped to the caller's tenant. Status transitions are guarded (see ADR-0007) — `PATCH .../status` rejects any jump not in `OPEN → MITIGATED → RESOLVED → CLOSED` with `400 Bad Request`.
+
+| Method | Path                            | Notes                                                                                                  |
+| ------ | ------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| POST   | `/incidents`                    | Create an incident (`title`, `description`, optional `severity`).                                      |
+| GET    | `/incidents`                    | List the tenant's incidents, newest first.                                                             |
+| GET    | `/incidents/:id`                | Full detail: incident + its decisions + evidence + actions.                                            |
+| GET    | `/incidents/:id/command-center` | `{ incident, openDecision, lastDecision }` — the North-Star / no-blank-state shape, ADR-0009.          |
+| GET    | `/incidents/:id/timeline`       | Ordered `TimelineEvent[]` audit trail. Read-only — events are written by the services, never directly. |
+| PATCH  | `/incidents/:id/status`         | Guarded status transition (see above).                                                                 |
+
+## Decisions (`apps/api/src/decisions`)
+
+`POST /decisions/:id/decide` is the **Principle 1** endpoint (see ADR-0007, `PREREQUIS.md` §2): it throws `400 Bad Request` unless `humanDecision` is a non-empty string **and** `decidedByUserId` resolves to a real member of the caller's tenant. There is no code path that lets a `Decision` reach `DECIDED` without both.
+
+| Method | Path                    | Notes                                                                                                                                      |
+| ------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/decisions`            | Open a decision against an incident (`incidentId`, `question`).                                                                            |
+| GET    | `/decisions/:id`        | Fetch a decision.                                                                                                                          |
+| POST   | `/decisions/:id/decide` | `{ humanDecision, decidedByUserId, rationale? }` → `OPEN → DECIDED`. Rejects if not `OPEN`, or if `decidedByUserId` isn't a tenant member. |
+| POST   | `/decisions/:id/cancel` | `OPEN → CANCELLED`. Rejects if not `OPEN` (a `DECIDED` decision is immutable).                                                             |
+
+## Evidence (`apps/api/src/evidence`)
+
+| Method | Path            | Notes                                                                                                            |
+| ------ | --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| POST   | `/evidence`     | `{ incidentId, decisionId?, type, source, summary, url? }`. `decisionId`, if given, must belong to `incidentId`. |
+| GET    | `/evidence/:id` | Fetch one piece of evidence.                                                                                     |
+
+## Actions (`apps/api/src/actions`)
+
+Status transitions guarded: `PENDING → IN_PROGRESS → DONE`, or `→ CANCELLED` from either non-terminal state.
+
+| Method | Path                  | Notes                                                                                                                   |
+| ------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/actions`            | `{ incidentId, decisionId?, title, assignedToUserId?, dueAt? }`. `assignedToUserId`, if given, must be a tenant member. |
+| PATCH  | `/actions/:id/status` | Guarded status transition.                                                                                              |
+
+## Integrations (Phase 6 seam, not a public API surface yet)
+
+`apps/api/src/integrations` defines the `IntegrationProvider` contract and a mock implementation per Phase 6 system (ServiceNow, Jira, Slack, Teams, AWS, Azure, GCP, Splunk, Datadog, Microsoft Sentinel — see ADR-0008). `IncidentsService`/`DecisionsService` broadcast to all registered providers on incident creation and decision decisions; the mocks log and report `isConfigured() === false`. No HTTP endpoints exist for this yet — it's an internal seam for Phase 6 to fill in.
+
 ## Health
 
 | Method | Path      | Auth |

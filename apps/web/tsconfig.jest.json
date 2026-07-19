@@ -6,5 +6,12 @@
     "jsx": "react-jsx",
     "noEmit": false,
     "isolatedModules": false
-  }
+  },
+  "include": [
+    "jest.setup.ts",
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    ".next/types/**/*.ts"
+  ]
 }

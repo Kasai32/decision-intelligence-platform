@@ -304,3 +304,56 @@ infra/          — Docker, CI/CD-adjacent infra config
 **Status:** Done. Phase 3 (Executive Command Center / Incident & Decision Timelines / Dashboard) is next — see `memory/context.md` for why that phase's data-model design is flagged as needing more product input than Phases 1–2 did.
 
 ---
+
+## 2026-07-19 — Phase 3 unblocked: user supplied the domain model + guard spec directly
+
+**Context:** The user asked to resume the autonomous loop for Phase 3, citing a detailed Domain Model / State Transition Guards / Interface Contract spec they said was "documented in PREREQUIS.md". On disk, `PREREQUIS.md` still only had the original one-line-per-item Phase 3 bullet list (Executive Command Center, Incident Timeline, Decision Timeline, Executive Dashboard) — the detailed spec was not actually there, the same gap pattern as the original empty `PREREQUIS.md`/`instruction.md` at the very start of this build.
+
+**Decision:** Did not block on the discrepancy. The user's chat message itself contained a complete, actionable spec (five named entities with tenant isolation, a concrete state-transition guard example, an explicit "Principle 1" rule, and a North-Star UI contract), which is sufficient to proceed. The spec was transcribed into `PREREQUIS.md` under a new "Phase 3 — Detailed Specification" subsection (flagged as user-supplied-in-chat, not originally on disk) so it's preserved for future reference, same treatment as the original roadmap capture.
+
+**Rationale:** Blocking a second time on the same class of gap (claimed file content vs. actual file content) would waste the user's explicit unblock instruction when the actual information needed was already in hand. Silently proceeding without noting the discrepancy would risk the user believing a document exists that doesn't. Recording it transparently in both `PREREQUIS.md` and here satisfies both concerns.
+
+**Status:** Done. See ADR-0006, ADR-0007, ADR-0008, ADR-0009 for the resulting technical decisions.
+
+---
+
+## 2026-07-19 — Phase 3 architecture decided upfront: domain model naming, guard layering, integration seam, UI contract
+
+**Context:** Four architecturally significant decisions had to be made before writing any Phase 3 code, each getting a full ADR because each is expensive to reverse once incident/decision data or frontend code depends on it.
+
+**Decision:**
+
+- `organization_id` (spec wording) is treated as this codebase's existing `tenantId`/`Tenant` concept, not a new parallel `Organization` model; spec field names normalized from snake_case to this codebase's camelCase convention (e.g. `human_decision` → `humanDecision`). Full rationale: [ADR-0006](docs/adr/0006-incident-decision-domain-model.md).
+- State transition validity (generic FSM guard) and the Decision→DECIDED human-stakeholder rule (Principle 1) are implemented as two separate, composable layers, not one entangled check. Full rationale: [ADR-0007](docs/adr/0007-state-transition-guards.md).
+- Phase 6's ten integrations get one shared `IntegrationProvider` TypeScript interface + a `MockIntegrationProvider` per system, wired into `IncidentsService`/`DecisionsService` now so the seam is actually exercised, not just defined. Full rationale: [ADR-0008](docs/adr/0008-phase6-integration-abstraction.md).
+- The Executive Command Center's "never blank, show last decision if none open" rule is computed once server-side (`GET /incidents/:id/command-center`), not reimplemented per frontend surface. Full rationale: [ADR-0009](docs/adr/0009-command-center-no-blank-state.md).
+
+**Rationale:** Same reasoning as the Phase 2 upfront-decisions entry above: these are load-bearing choices that get more expensive to change the more code depends on them, so they were resolved before, not during, implementation.
+
+**Status:** Done. See ADR-0006 through ADR-0009.
+
+---
+
+## 2026-07-19 — Bug fix: state-machine same-state shortcut let an already-DECIDED Decision be "re-decided"
+
+**Context:** Caught by a unit test, not by inspection: the original `assertValidTransition` treated `from === to` as an unconditional no-op (a reasonable-sounding convenience — "setting status to what it already is shouldn't error"). But `DecisionsService.decide()` always calls it with a fixed `to = DECIDED`. For a `Decision` already in `DECIDED` status, `from === to === DECIDED` tripped the no-op shortcut and skipped the transition check entirely — `decide()` would then proceed straight to the human-stakeholder membership lookup and silently overwrite an already-decided `Decision`'s `humanDecision`/`decidedByUserId`/`decidedAt`. This directly undermines Principle 1's intent: a decision, once made by a named human, must be immutable, not silently re-writable.
+
+**Decision:** Removed the `from === to` shortcut from `assertValidTransition` entirely. Every transition, including a same-state one, must now be explicitly listed in the entity's `TransitionMap` to be allowed — there is no implicit "no-op is always fine" behavior. Since none of the Phase 3 transition maps (`INCIDENT_TRANSITIONS`, `DECISION_TRANSITIONS`, `ACTION_TRANSITIONS`) list any state as reachable from itself, a same-state call now correctly throws `BadRequestException` everywhere, including re-deciding/re-cancelling a `Decision` and re-setting an `Incident`/`Action` to its current status.
+
+**Rationale:** An implicit convenience in a generic, shared engine silently created a real correctness gap in the one place (`Decision.decide()`) where immutability actually matters. Requiring every legal transition — including same-state ones — to be explicit in the map removes an entire class of "convenient default quietly does the wrong thing for one specific caller" bugs, at the cost of needing an explicit self-loop entry (`RED: ['RED', ...]`) for any future entity where idempotent same-state PATCH really is desired.
+
+**Status:** Done. Test added: `state-machine.spec.ts` — "rejects a same-state transition unless explicitly allowed"; `decisions.service.spec.ts` — "rejects deciding a Decision that is not OPEN (already DECIDED)" now correctly fails closed.
+
+---
+
+## 2026-07-19 — Phase 3 complete and verified end-to-end, including a live adversarial test of Principle 1
+
+**Context:** Roadmap Phase 3 deliverable (per the user-supplied §2 spec): Incident/Decision/Evidence/TimelineEvent/Action domain model, state transition guards with Principle 1 enforcement, Phase 6 integration mocks, and a no-blank-state Executive Command Center.
+
+**Decision:** Phase 3 is done: 5 new Prisma models + migration; generic state-transition guard engine + per-entity maps (Incident/Decision/Action); `DecisionsService.decide()` enforcing Principle 1; `EvidenceService`/`ActionsService`; `IntegrationsRegistryService` with 10 mock providers wired into incident/decision events; `GET /incidents/:id/command-center` shaping the no-blank-state contract; `apps/web` Executive Command Center (`IncidentDecisionPanel` + login + API client). 33 new backend tests (65 total in `apps/api`) and 5 new frontend tests (6 total in `apps/web`).
+
+**Rationale — verification, not just unit tests:** Before committing, ran a live adversarial sequence against the full `docker compose up --build` stack, specifically trying to defeat Principle 1: (1) `POST /incidents/:id/command-center`-equivalent before any decision existed → confirmed `{openDecision: null, lastDecision: null}`, never a missing/blank field; (2) opened a decision, then attempted `decide()` with a fabricated `decidedByUserId` (a UUID that is not a real tenant member — simulating an AI or script trying to self-attest a decision) → correctly rejected with `400` and the exact Principle-1 message; (3) attempted `decide()` with no `humanDecision` → correctly rejected by the DTO validator; (4) `decide()` with a real, verified tenant member → succeeded, `201`; (5) command-center re-checked → correctly fell back to `lastDecision` (North Star requirement); (6) attempted to `decide()` the same, now-`DECIDED` decision again → correctly rejected, `DECIDED -> DECIDED` is not an allowed transition (the same bug class fixed above, now proven closed live, not just in a mock-based unit test); (7) fetched the incident's `TimelineEvent` audit trail → confirmed `INCIDENT_CREATED`, `DECISION_OPENED`, `DECISION_DECIDED` all present and attributed to the correct actor.
+
+**Status:** Done. All of `lint`, `format:check`, `test` (72 tests across 3 workspaces), and `build` pass; `npm audit` reports 0 vulnerabilities. No git remote exists to push to (see `memory/context.md`) — committed locally only.
+
+---

@@ -1,11 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import HomePage from '../app/page';
+import CommandCenterPage from '../app/page';
 
-describe('HomePage', () => {
-  it('renders the platform name', () => {
-    render(<HomePage />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'Decision Intelligence Platform',
-    );
+jest.mock('../lib/auth-storage', () => ({
+  getAccessToken: jest.fn(() => null),
+}));
+
+describe('CommandCenterPage', () => {
+  it('never renders blank when unauthenticated — shows a sign-in prompt instead', async () => {
+    render(<CommandCenterPage />);
+    expect(await screen.findByRole('link', { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Executive Command Center');
   });
 });
