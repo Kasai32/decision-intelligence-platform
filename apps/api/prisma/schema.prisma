@@ -29,6 +29,9 @@ model Tenant {
   timelineEvents       TimelineEvent[]
   actions              Action[]
   intelligenceAnalyses IntelligenceAnalysis[]
+  executiveBriefs      ExecutiveBrief[]
+  decisionReports      DecisionReport[]
+  lessonsLearned       LessonLearned[]
 
   @@map("tenants")
 }
@@ -52,6 +55,9 @@ model User {
   timelineActions   TimelineEvent[]        @relation("TimelineEventActor")
   assignedActions   Action[]               @relation("ActionAssignedTo")
   submittedAnalyses IntelligenceAnalysis[] @relation("IntelligenceAnalysisSubmittedBy")
+  generatedBriefs   ExecutiveBrief[]       @relation("ExecutiveBriefGeneratedBy")
+  generatedReports  DecisionReport[]       @relation("DecisionReportGeneratedBy")
+  createdLessons    LessonLearned[]        @relation("LessonLearnedCreatedBy")
 
   @@map("users")
 }
@@ -155,6 +161,9 @@ enum TimelineEventType {
   ACTION_CREATED
   ACTION_STATUS_CHANGED
   INTELLIGENCE_ANALYSIS_GENERATED
+  EXECUTIVE_BRIEF_GENERATED
+  DECISION_REPORT_GENERATED
+  LESSON_LEARNED_CREATED
 }
 
 enum ActionStatus {
@@ -187,6 +196,8 @@ model Incident {
   timelineEvents       TimelineEvent[]
   actions              Action[]
   intelligenceAnalyses IntelligenceAnalysis[]
+  executiveBriefs      ExecutiveBrief[]
+  lessonsLearned       LessonLearned[]
 
   @@index([tenantId])
   @@map("incidents")
@@ -222,9 +233,10 @@ model Decision {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  evidence       Evidence[]
-  timelineEvents TimelineEvent[]
-  actions        Action[]
+  evidence        Evidence[]
+  timelineEvents  TimelineEvent[]
+  actions         Action[]
+  decisionReports DecisionReport[]
 
   @@index([tenantId])
   @@index([incidentId])
@@ -364,4 +376,98 @@ model IntelligenceAnalysis {
   @@index([tenantId])
   @@index([incidentId])
   @@map("intelligence_analyses")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5 — Reporting (see ADR-0011)
+// ---------------------------------------------------------------------------
+
+/// An immutable, point-in-time generated summary of an incident (see
+/// ADR-0011). Every field except `additionalNotes` is a factual snapshot
+/// computed server-side at generation time — never fabricated narrative.
+/// Generating a new brief creates a new row; history is preserved.
+model ExecutiveBrief {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  title            String
+  incidentStatus   IncidentStatus
+  incidentSeverity IncidentSeverity
+  summary          String
+  businessImpact   Json?
+  keyDecisions     Json
+  openRisks        Json
+  nextActions      Json
+  additionalNotes  String?
+
+  generatedByUserId String
+  generatedBy       User     @relation("ExecutiveBriefGeneratedBy", fields: [generatedByUserId], references: [id])
+  generatedAt       DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([incidentId])
+  @@map("executive_briefs")
+}
+
+/// An immutable, point-in-time snapshot of a single decision — question,
+/// outcome, evidence used, and relevant timeline (see ADR-0011).
+model DecisionReport {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  decisionId String
+  decision   Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  incidentId String
+
+  question        String
+  status          DecisionStatus
+  humanDecision   String?
+  rationale       String?
+  decidedByUserId String?
+  decidedAt       DateTime?
+  evidenceSummary Json
+  timelineSummary Json
+  additionalNotes String?
+
+  generatedByUserId String
+  generatedBy       User     @relation("DecisionReportGeneratedBy", fields: [generatedByUserId], references: [id])
+  generatedAt       DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([decisionId])
+  @@map("decision_reports")
+}
+
+/// A human-authored retrospective knowledge artifact (see ADR-0011). Not
+/// computable from structured data — genuine insight requires a person.
+/// Only creatable for a CLOSED incident (enforced in LessonsLearnedService).
+/// The Knowledge Base (Phase 5) is search over these rows.
+model LessonLearned {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  title         String
+  whatHappened  String
+  whatWentWell  String[]
+  whatToImprove String[]
+  actionItems   String[]
+  tags          String[]
+
+  createdByUserId String
+  createdBy       User     @relation("LessonLearnedCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([incidentId])
+  @@map("lessons_learned")
 }

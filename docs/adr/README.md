@@ -23,3 +23,4 @@ An ADR captures a single significant, hard-to-reverse architectural decision: th
 | [0008](0008-phase6-integration-abstraction.md)         | Phase 6 integration abstraction (mock providers)                                     | Accepted |
 | [0009](0009-command-center-no-blank-state.md)          | Executive Command Center: server-shaped "no blank state" contract                    | Accepted |
 | [0010](0010-decision-intelligence-confidence-model.md) | Decision Intelligence Engine: multidimensional confidence model + AI Output Contract | Accepted |
+| [0011](0011-phase5-reporting-architecture.md)          | Phase 5 Reporting: immutable generated artifacts, factual auto-assembly              | Accepted |

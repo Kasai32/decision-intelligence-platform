@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Status: Living document. Reflects Phase 1 (Foundation), Phase 2 (Platform core), Phase 3 (Executive Command Center / Incident & Decision domain model), and Phase 4 (Decision Intelligence Engine — multidimensional confidence model), all complete; will be extended as each subsequent phase in [PREREQUIS.md](../../PREREQUIS.md) lands. Stack decisions here are recorded with full rationale in [DECISION_LOG.md](../../DECISION_LOG.md) and, where architecturally significant, in an [ADR](../adr/README.md).
+Status: Living document. Reflects Phase 1 (Foundation), Phase 2 (Platform core), Phase 3 (Executive Command Center / Incident & Decision domain model), Phase 4 (Decision Intelligence Engine — multidimensional confidence model), and Phase 5 (Reporting — Executive Briefs, Decision Reports, Lessons Learned, Knowledge Base), all complete; will be extended as each subsequent phase in [PREREQUIS.md](../../PREREQUIS.md) lands. Stack decisions here are recorded with full rationale in [DECISION_LOG.md](../../DECISION_LOG.md) and, where architecturally significant, in an [ADR](../adr/README.md).
 
 ## 1. System purpose
 
@@ -44,7 +44,10 @@ Everything below is designed so Phases 2–6 are additive (new modules/packages)
                          │     (10 mock providers)   │     Phase 6 fills in real ones
                          │  ── Decision Intelligence │  <- Phase 4 (done — ADR-0010)
                          │     Engine (4-dim scoring)│     confidence model, AI Output Contract
-                         │  ── Reporting module      │  <- Phase 5
+                         │  ── Executive Briefs /    │  <- Phase 5 (done — ADR-0011)
+                         │     Decision Reports /    │     immutable snapshots, factual only
+                         │     Lessons Learned /     │
+                         │     Knowledge Base        │
                          └────────────┬─────────────┘
                                       │ Prisma
                          ┌────────────▼─────────────┐
@@ -54,14 +57,17 @@ Everything below is designed so Phases 2–6 are additive (new modules/packages)
                          │  Incident / Decision /    │
                          │  Evidence / TimelineEvent │
                          │  / Action /               │
-                         │  IntelligenceAnalysis     │
+                         │  IntelligenceAnalysis /   │
+                         │  ExecutiveBrief /         │
+                         │  DecisionReport /         │
+                         │  LessonLearned            │
                          └───────────────────────────┘
 
            packages/shared  — TS types/DTOs/contracts shared by web + api
                               (now includes Incident/Decision/CommandCenterSummary)
 ```
 
-Full endpoint reference: [docs/api/README.md](../api/README.md). Design rationale: ADR-0003 (Prisma), ADR-0004 (shared-schema multi-tenancy), ADR-0005 (self-hosted JWT auth), ADR-0006 (Incident/Decision/Evidence/TimelineEvent/Action domain model), ADR-0007 (state transition guards + Principle 1), ADR-0008 (Phase 6 integration mocks), ADR-0009 (Command Center no-blank-state contract), ADR-0010 (Decision Intelligence Engine confidence model).
+Full endpoint reference: [docs/api/README.md](../api/README.md). Design rationale: ADR-0003 (Prisma), ADR-0004 (shared-schema multi-tenancy), ADR-0005 (self-hosted JWT auth), ADR-0006 (Incident/Decision/Evidence/TimelineEvent/Action domain model), ADR-0007 (state transition guards + Principle 1), ADR-0008 (Phase 6 integration mocks), ADR-0009 (Command Center no-blank-state contract), ADR-0010 (Decision Intelligence Engine confidence model), ADR-0011 (Phase 5 Reporting architecture).
 
 External integrations (Phase 6: ServiceNow, Jira, Slack, Teams, AWS/Azure/GCP, Splunk, Datadog, Microsoft Sentinel) are, as of Phase 3, ten `MockIntegrationProvider` instances behind `IntegrationsRegistryService` (see ADR-0008) — `IncidentsService`/`DecisionsService` already broadcast to all of them on incident-created/decision-decided; Phase 6 swaps mocks for real implementations one at a time without touching either service.
 
@@ -114,10 +120,11 @@ infra/
 - **Integration isolation:** each Phase 6 integration is a `MockIntegrationProvider` (real implementations later) behind `IntegrationsRegistryService`; a provider that throws is caught and logged per-provider, never allowed to fail the triggering request. See ADR-0008.
 - **No blank state:** the Executive Command Center's "what to show" logic is computed once, server-side (`GET /incidents/:id/command-center`), not reimplemented per frontend surface. See ADR-0009.
 - **No black-box confidence:** the Decision Intelligence Engine reports four independent, auditable dimensions (`evidenceCompleteness`, `sourceReliability`, `dataFreshness`, `aiCertainty`) — never merged into a single score, and never accepted from a client. Each is a deterministic function of real `Evidence` rows; `aiCertainty` is explicitly documented as a heuristic, not a trained-model output, since no model or historical corpus exists. See ADR-0010.
+- **No fabricated narrative in reports:** `ExecutiveBrief`/`DecisionReport` are immutable point-in-time snapshots generated on `POST`; every field except an optional `additionalNotes` is a real value assembled from `Incident`/`Decision`/`Evidence`/`IntelligenceAnalysis` rows via a small deterministic template — never invented prose. `LessonLearned` content is entirely human-authored and gated to `Incident.status = CLOSED`. See ADR-0011.
 
 ## 6. What's not built yet
 
-No reporting (Executive Brief Generator, Decision Reports, Lessons Learned, Knowledge Base — Phase 5), no real external integrations (Phase 6 — the mocks exist, see above). Phases 1–4 are complete: Foundation, Platform core, the Incident/Decision domain model with its guards and Command Center, and the Decision Intelligence Engine's confidence model. The Decision Intelligence Engine does not itself generate the qualitative analysis (situation summary, recommended decision, risks, etc.) — no LLM integration exists in this environment; those fields are supplied by whoever calls `POST /incidents/:id/analyze` (today: a human analyst) and validated, not fabricated by an algorithm. See [PREREQUIS.md](../../PREREQUIS.md) for what Phases 5–6 add, and `memory/context.md` for what's explicitly blocked pending user input.
+No real external integrations (Phase 6 — the mocks exist, see above). Phases 1–5 are complete: Foundation, Platform core, the Incident/Decision domain model with its guards and Command Center, the Decision Intelligence Engine's confidence model, and Reporting (Executive Briefs, Decision Reports, Lessons Learned, Knowledge Base search). Neither the Decision Intelligence Engine nor Reporting generate qualitative narrative via any algorithm — no LLM integration exists in this environment; qualitative content is either supplied by a human caller (`POST /incidents/:id/analyze`'s judgment fields, `additionalNotes` on briefs/reports, all of a Lesson Learned) or assembled from real facts via deterministic templates, never fabricated. See [PREREQUIS.md](../../PREREQUIS.md) for what Phase 6 adds, and `memory/context.md` for what's explicitly blocked pending user input.
 
 ## 7. Change process
 

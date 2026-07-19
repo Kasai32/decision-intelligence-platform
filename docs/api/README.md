@@ -80,6 +80,34 @@ Implements the multidimensional confidence model from ADR-0010 / `PREREQUIS.md` 
 
 `evidenceCompleteness` requires specific `EvidenceSourceCategory` values per `Incident.type` (e.g. `CLOUD_OUTAGE` requires `[MONITORING, CLOUD_PROVIDER]`); `sourceReliability` averages a static per-category reliability table (e.g. `CLOUD_PROVIDER: 95`, `CHAT: 40`); `dataFreshness` decays from the most recent evidence's age, faster for higher-severity incidents; `aiCertainty` is an explicitly-documented deterministic heuristic (evidence volume + source diversity − conflict count), not a trained-model output — see ADR-0010 for the exact formulas and lookup tables.
 
+## Reporting (Phase 5 — see ADR-0011)
+
+Executive Briefs and Decision Reports are **immutable, persisted snapshots** generated on `POST`, not recomputed on every `GET` — each generation creates a new row, preserving history. Every field except `additionalNotes` is a factual value computed from real rows at generation time; no narrative is fabricated (no LLM integration exists in this environment).
+
+### Executive Briefs (`apps/api/src/executive-briefs`)
+
+| Method | Path                                      | Notes                                                                                                                                                                                                                                                                          |
+| ------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/incidents/:incidentId/executive-brief`  | Body: `{ additionalNotes? }`. Assembles `title`, `incidentStatus`/`incidentSeverity` (snapshot), a factual `summary` (e.g. "N of M decisions made"), `businessImpact`/`openRisks` from the latest `IntelligenceAnalysis` if one exists, and `nextActions` from open `Action`s. |
+| GET    | `/incidents/:incidentId/executive-briefs` | List generated briefs for the incident, newest first.                                                                                                                                                                                                                          |
+
+### Decision Reports (`apps/api/src/decision-reports`)
+
+| Method | Path                             | Notes                                                                                                                                                              |
+| ------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/decisions/:decisionId/report`  | Body: `{ additionalNotes? }`. Snapshots the decision's outcome plus `evidenceSummary`/`timelineSummary` scoped strictly to that decision (not the whole incident). |
+| GET    | `/decisions/:decisionId/reports` | List generated reports for the decision, newest first.                                                                                                             |
+
+### Lessons Learned + Knowledge Base (`apps/api/src/lessons-learned`)
+
+Entirely human-authored — no algorithm generates retrospective insight. Creating a lesson requires `Incident.status = CLOSED` (`400 Bad Request` otherwise).
+
+| Method | Path                                     | Notes                                                                                                                                                                     |
+| ------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/incidents/:incidentId/lessons-learned` | `{ title, whatHappened, whatWentWell?, whatToImprove?, actionItems?, tags? }`. Rejects unless the incident is `CLOSED`.                                                   |
+| GET    | `/incidents/:incidentId/lessons-learned` | List lessons recorded for the incident.                                                                                                                                   |
+| GET    | `/knowledge-base/search?query=&tags=a,b` | Tenant-scoped search across all `LessonLearned` rows: `query` matches `title`/`whatHappened` case-insensitively; `tags` is a comma-separated list matched with `hasSome`. |
+
 ## Integrations (Phase 6 seam, not a public API surface yet)
 
 `apps/api/src/integrations` defines the `IntegrationProvider` contract and a mock implementation per Phase 6 system (ServiceNow, Jira, Slack, Teams, AWS, Azure, GCP, Splunk, Datadog, Microsoft Sentinel — see ADR-0008). `IncidentsService`/`DecisionsService` broadcast to all registered providers on incident creation and decision decisions; the mocks log and report `isConfigured() === false`. No HTTP endpoints exist for this yet — it's an internal seam for Phase 6 to fill in.

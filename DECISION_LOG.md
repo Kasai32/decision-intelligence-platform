@@ -393,3 +393,27 @@ infra/          — Docker, CI/CD-adjacent infra config
 **Status:** Done. All of `lint`, `format:check`, `test` (103 tests across 3 workspaces), and `build` pass; `npm audit` reports 0 vulnerabilities.
 
 ---
+
+## 2026-07-19 — Phase 5 started without a detailed user spec — design judgment recorded upfront
+
+**Context:** Unlike Phase 3/4, the user's instruction to continue Phase 5 came with no technical spec — only the four roadmap bullet items (Executive Brief Generator, Decision Reports, Lessons Learned, Knowledge Base). Real design decisions had to be made independently.
+
+**Decision:** Full rationale in [ADR-0011](docs/adr/0011-phase5-reporting-architecture.md). Summary: Executive Briefs and Decision Reports are immutable, persisted, point-in-time snapshots (like `IntelligenceAnalysis`, ADR-0010) rather than recomputed views; brief/report narrative content is assembled from real facts via a small deterministic template, never fabricated prose (same no-black-box principle as ADR-0010, since no LLM integration exists here); Lessons Learned are entirely human-authored and gated to `Incident.status = CLOSED`; the Knowledge Base is search (Postgres `ILIKE` + tag filter) over `LessonLearned`, not a new content type or a search engine.
+
+**Rationale:** Where the user gives an explicit spec (Phase 3/4), follow it exactly and flag any gaps. Where none exists (this phase), the responsible path is to apply the same architectural principles already established and validated in this codebase — auditable persistence, no fabricated intelligence, tenant isolation, guarded preconditions — rather than either inventing an unconstrained feature set or stalling the loop waiting for detail that wasn't offered.
+
+**Status:** In progress — see subsequent entries for implementation, tests, and verification.
+
+---
+
+## 2026-07-19 — Phase 5 complete and verified end-to-end, including the CLOSED-incident guard
+
+**Context:** Roadmap Phase 5 deliverable: Executive Brief Generator, Decision Reports, Lessons Learned, Knowledge Base (see ADR-0011 for the full design).
+
+**Decision:** Phase 5 is done: `ExecutiveBrief`/`DecisionReport`/`LessonLearned` Prisma models + migration; `ExecutiveBriefsService.generate()` assembling a factual snapshot (title, status/severity, a template-based `summary`, `businessImpact`/`openRisks` from the latest `IntelligenceAnalysis` if any, `nextActions` from open `Action`s); `DecisionReportsService.generate()` snapshotting a decision's outcome plus evidence/timeline scoped strictly to that decision; `LessonsLearnedService.create()` gated to `Incident.status = CLOSED`; `LessonsLearnedService.search()` (Knowledge Base) via Postgres `ILIKE` + tag `hasSome`. 16 new tests (112 total in `apps/api`).
+
+**Rationale — live verification, not just unit tests:** Before committing, ran a full sequence against `docker compose up --build`: created an incident, opened and decided a decision, generated an Executive Brief → confirmed the `summary` field read exactly `Incident "Checkout latency spike" is currently OPEN (MEDIUM severity). 1 of 1 decision(s) made.` (a real count, not invented text), `keyDecisions` reflected the actual decided decision, `businessImpact`/`openRisks` were correctly `null`/`[]` since no `IntelligenceAnalysis` existed for this incident (no silent fabrication to fill the gap); generated a Decision Report → confirmed `evidenceSummary`/`timelineSummary` were correctly empty/scoped to just that decision's own timeline events (`DECISION_OPENED`, `DECISION_DECIDED`), not the whole incident's; attempted to record a Lesson Learned on the still-`OPEN` incident → `400`, exact guard message; walked the incident through its full guarded lifecycle (`OPEN → MITIGATED → RESOLVED → CLOSED`); recorded the Lesson Learned again on the now-`CLOSED` incident → succeeded; searched the Knowledge Base by both free-text query and tag → both correctly found the one match; searched for an unrelated term → correctly found zero.
+
+**Status:** Done. All of `lint`, `format:check`, `test` (119 tests across 3 workspaces), and `build` pass; `npm audit` reports 0 vulnerabilities.
+
+---
