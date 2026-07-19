@@ -1,12 +1,14 @@
 'use client';
 
-import type { CommandCenterSummary, Incident, TimelineEvent } from '@dip/shared';
-import { LogOut, Radar, ScrollText } from 'lucide-react';
+import type { CommandCenterSummary, Incident, IntelligenceAnalysis, TimelineEvent } from '@dip/shared';
+import { LogOut, Radar, ScrollText, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { DecisionLog } from '../components/DecisionLog';
 import { IncidentDecisionPanel } from '../components/IncidentDecisionPanel';
+import { IntelligenceAnalysisForm } from '../components/IntelligenceAnalysisForm';
+import { IntelligenceAnalysisPanel } from '../components/IntelligenceAnalysisPanel';
 import { SeverityBadge } from '../components/SeverityBadge';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -27,6 +29,7 @@ export default function CommandCenterPage() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [summary, setSummary] = useState<CommandCenterSummary | null>(null);
   const [timeline, setTimeline] = useState<TimelineEvent[] | null>(null);
+  const [analyses, setAnalyses] = useState<IntelligenceAnalysis[] | null>(null);
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -51,10 +54,12 @@ export default function CommandCenterPage() {
     if (!selectedIncidentId) {
       setSummary(null);
       setTimeline(null);
+      setAnalyses(null);
       return;
     }
     setSummary(null);
     setTimeline(null);
+    setAnalyses(null);
     apiClient
       .get<CommandCenterSummary>(`/incidents/${selectedIncidentId}/command-center`)
       .then(setSummary)
@@ -66,6 +71,12 @@ export default function CommandCenterPage() {
       .then(setTimeline)
       .catch((err) => {
         setErrorMessage(err instanceof ApiError ? err.message : 'Failed to load timeline');
+      });
+    apiClient
+      .get<IntelligenceAnalysis[]>(`/incidents/${selectedIncidentId}/analyses`)
+      .then(setAnalyses)
+      .catch((err) => {
+        setErrorMessage(err instanceof ApiError ? err.message : 'Failed to load intelligence analyses');
       });
   }, [selectedIncidentId]);
 
@@ -194,6 +205,10 @@ export default function CommandCenterPage() {
                       <ScrollText className="mr-1.5 h-4 w-4" />
                       Decision Log
                     </TabsTrigger>
+                    <TabsTrigger value="intelligence">
+                      <Sparkles className="mr-1.5 h-4 w-4" />
+                      Decision Intelligence
+                    </TabsTrigger>
                   </TabsList>
                   <TabsContent value="command-center">
                     <IncidentDecisionPanel
@@ -204,6 +219,15 @@ export default function CommandCenterPage() {
                   </TabsContent>
                   <TabsContent value="decision-log">
                     <DecisionLog events={timeline ?? []} />
+                  </TabsContent>
+                  <TabsContent value="intelligence" className="flex flex-col gap-4">
+                    <IntelligenceAnalysisPanel analyses={analyses ?? []} />
+                    <IntelligenceAnalysisForm
+                      incidentId={selectedIncident.id}
+                      onCreated={(analysis) =>
+                        setAnalyses((current) => [analysis, ...(current ?? [])])
+                      }
+                    />
                   </TabsContent>
                 </Tabs>
               ) : (

@@ -1,6 +1,6 @@
 # Standing Context
 
-Last updated: 2026-07-19.
+Last updated: 2026-07-20.
 
 ## Current phase
 
@@ -10,7 +10,9 @@ Last updated: 2026-07-19.
 
 **Post-roadmap: frontend design system (user-named "Phase 4: Command Center UI & Decision Log UI") is complete** (see [ADR-0014](../docs/adr/0014-frontend-design-system.md)). The Dry Run validated the backend but the user judged the unstyled frontend unacceptable for an enterprise demo and explicitly halted all backend work to focus on it. `apps/web` now runs Tailwind CSS v4 + hand-authored shadcn-style primitives (`src/components/ui/`) in a single dark "command center" theme (no toggle), with severity color-coding (`src/lib/severity.ts`) applied consistently across the incident list and decision cards, a live ticking `CountdownTimer` on every open decision (deadline computed client-side from a deterministic, disclosed per-severity SLA table — `src/lib/sla-policy.ts` — not stored, not fabricated, not a backend change), and a new Decision Log tab rendering the existing timeline feed. Zero `apps/api` behavior changed; `packages/shared` gained one additive `TimelineEvent` type. 175 tests in `apps/api` (unchanged), 16 in `apps/web` (was 11).
 
-**What remains is filling in real-world specifics this environment cannot provide (see constraints below), not new phases.**
+**In progress: closing the apps/web coverage gap for already-built Phase 4/5/6 backends.** The user asked to prioritize this over supplying real credentials (which they'll add later), driven via a self-paced `/loop`, one commit per surface. First surface done — Decision Intelligence Engine (Phase 4): a new "Decision Intelligence" Command Center tab (`IntelligenceAnalysisPanel` + `IntelligenceAnalysisForm`) reusing ADR-0014's design system, no backend change. Surfaced a real, unfixed API inconsistency: `POST /incidents/:id/analyze` nests the four confidence dimensions under `confidenceDimensions`, but `GET /incidents/:id/analyses` returns them as flat Prisma columns — worked around in the frontend (normalized on submit), not fixed in `apps/api` (out of scope for this task; tracked below). 198 tests total (175 `apps/api` + 22 `apps/web` + 1 `packages/shared`). Reporting (Phase 5) and Integrations management (Phase 6) UI are next.
+
+**What remains otherwise is filling in real-world specifics this environment cannot provide (see constraints below), not new phases.**
 
 ## Operating mode
 
@@ -59,6 +61,7 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 - Real integration credentials per Phase 6 system, see constraint above — the seam (`NetworkSimulator`) is ready.
 - Circuit-breaker state is in-process memory only — would need a shared store (Redis) for a multi-replica deployment (see ADR-0012, explicitly out of scope for this single-instance MVP).
 - Frontend refresh-token handling (access token expiry currently just breaks API calls with no silent refresh) — worth hardening before real usage.
-- No `apps/web` UI exists yet for Decision Intelligence Engine (Phase 4 analyses), Reporting (Phase 5), or Integrations management (Phase 6) — only backend + tests. The Executive Command Center + Decision Log (ADR-0014), login, and the `/simulation` facilitator panel (ADR-0013) are the only frontend surfaces built so far.
+- No `apps/web` UI exists yet for Reporting (Phase 5: Executive Briefs / Decision Reports / Lessons Learned / Knowledge Base) or Integrations management (Phase 6) — only backend + tests. Decision Intelligence Engine (Phase 4) UI is now done (see above); it, the Command Center + Decision Log (ADR-0014), login, and the `/simulation` facilitator panel (ADR-0013) are the only frontend surfaces built so far.
+- **`apps/api` response-shape bug found while building the Decision Intelligence UI:** `POST /incidents/:id/analyze` nests the four confidence dimensions under a `confidenceDimensions` object; `GET /incidents/:id/analyses` returns the same four dimensions as flat top-level columns (the raw Prisma row shape). The two should agree — worth fixing (most likely: flatten the POST response) next time `DecisionIntelligenceEngineService` is touched. `apps/web` currently normalizes around it client-side.
 - The SLA countdown policy (ADR-0014) needs a real product decision: configurable per-tenant response windows stored server-side (admin-editable), replacing the current hardcoded frontend table.
 - Knowledge Base search is keyword/ILIKE-based; revisit with semantic/embedding search if Lessons Learned volume grows large (see ADR-0011).

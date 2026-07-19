@@ -80,3 +80,75 @@ export interface TimelineEvent {
   metadata: Record<string, unknown> | null;
   occurredAt: string;
 }
+
+// ---------------------------------------------------------------------------
+// Decision Intelligence Engine (Phase 4, ADR-0010) — type-only additions for
+// the frontend surface; mirrors apps/api's AIOutputContractDto / Prisma
+// IntelligenceAnalysis model. No backend change.
+// ---------------------------------------------------------------------------
+
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export interface Risk {
+  description: string;
+  likelihood: RiskLevel;
+  impact: RiskLevel;
+}
+
+export interface BusinessImpact {
+  level: IncidentSeverity;
+  description: string;
+  affectedSystems: string[];
+}
+
+/** A candidate decision option — used for both recommendedDecision and alternativeDecisions. */
+export interface DecisionOption {
+  label: string;
+  description: string;
+  pros?: string[];
+  cons?: string[];
+}
+
+/** The four independent confidence dimensions (see ADR-0010) — never merged into a single score. */
+export interface ConfidenceDimensions {
+  evidenceCompleteness: number;
+  sourceReliability: number;
+  dataFreshness: number;
+  aiCertainty: number;
+}
+
+/** The qualitative fields a caller supplies to POST /incidents/:id/analyze — see SubmitIntelligenceAnalysisDto. */
+export interface SubmitIntelligenceAnalysisInput {
+  situationSummary: string;
+  businessImpact: BusinessImpact;
+  criticalRisks: Risk[];
+  conflictingInformation: string[];
+  recommendedDecision: DecisionOption;
+  alternativeDecisions: DecisionOption[];
+  expectedConsequences: string;
+  immediateNextActions: string[];
+  executiveSummary: string;
+}
+
+/**
+ * The persisted shape returned by GET /incidents/:id/analyses — mirrors the
+ * Prisma `IntelligenceAnalysis` model directly, so the four confidence
+ * dimensions are flat columns here (`evidenceCompleteness` etc.), not a
+ * nested `confidenceDimensions` object. POST /incidents/:id/analyze returns
+ * the AI Output Contract shape instead (dimensions nested under
+ * `confidenceDimensions`) — apps/web's api-client normalizes that response
+ * to this same flat shape so callers only ever deal with one type.
+ */
+export interface IntelligenceAnalysis extends SubmitIntelligenceAnalysisInput {
+  id: string;
+  tenantId: string;
+  incidentId: string;
+  evidenceUsed: string[];
+  missingInformation: string[];
+  evidenceCompleteness: number;
+  sourceReliability: number;
+  dataFreshness: number;
+  aiCertainty: number;
+  submittedByUserId: string;
+  createdAt: string;
+}
