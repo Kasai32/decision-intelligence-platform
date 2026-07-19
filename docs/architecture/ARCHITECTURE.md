@@ -87,6 +87,8 @@ External integrations (ServiceNow, Jira, Slack, Teams, AWS/Azure/GCP, Splunk, Da
 
 **Reporting frontend surface (2026-07-20, frontend-only, see DECISION_LOG.md).** The Command Center gained a fifth tab, "Reports," composing three self-contained Phase 5 panels: `ExecutiveBriefsPanel`, `DecisionReportsPanel` (needs a decision list per incident, which no `apps/api` endpoint provides — derives it from the `DECISION_OPENED` events already in the incident's timeline instead), and `LessonsLearnedPanel` (shows the CLOSED-incident gate explicitly rather than hiding the form). A standalone `/knowledge-base` page renders Phase 5's tenant-wide search. `packages/shared` gained additive-only types mirroring the `ExecutiveBrief`/`DecisionReport`/`LessonLearned` Prisma models.
 
+**Integrations management frontend surface (2026-07-20, frontend-only, see DECISION_LOG.md).** A standalone `/integrations` page (tenant-wide, not per-incident, so not a Command Center tab) lists all ten Phase 6 providers via `IntegrationCard`: status/circuit-state badges and admin actions (configure with a raw JSON credentials textarea — matching `ConfigureIntegrationDto`'s own provider-agnostic shape, since this environment only has fixture credentials; set active/broken; remove). No client-side role check, same precedent as `/simulation` (ADR-0013) — the backend's `@Roles(Role.ADMIN)` 403 is the only enforcement. `apps/web/src/lib/api-client.ts` gained a `delete` method (the one HTTP verb it was missing). `packages/shared` gained additive-only `IntegrationKey`/`IntegrationConfigStatus`/`IntegrationStatusSummary` types. This closes the `apps/web` coverage gap across all six roadmap phases.
+
 ## 3. Monorepo layout
 
 ```

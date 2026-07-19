@@ -244,3 +244,34 @@ export interface LessonLearned {
   createdAt: string;
   updatedAt: string;
 }
+
+// ---------------------------------------------------------------------------
+// Enterprise Integrations (Phase 6, ADR-0012) — type-only additions for the
+// frontend surface; mirrors apps/api's Prisma enums / IntegrationStatusSummary.
+// No backend change.
+// ---------------------------------------------------------------------------
+
+/** The ten Phase 6 enterprise systems — see ADR-0008 / ADR-0012. */
+export type IntegrationKey =
+  | 'SERVICENOW'
+  | 'JIRA'
+  | 'SLACK'
+  | 'TEAMS'
+  | 'AWS'
+  | 'AZURE'
+  | 'GCP'
+  | 'SPLUNK'
+  | 'DATADOG'
+  | 'MICROSOFT_SENTINEL';
+
+export type IntegrationConfigStatus = 'ACTIVE' | 'BROKEN';
+
+/** Shape returned by GET /integrations and every /integrations/:providerType/config mutation — see ADR-0012. */
+export interface IntegrationStatusSummary {
+  providerType: IntegrationKey;
+  displayName: string;
+  configured: boolean;
+  status: IntegrationConfigStatus | 'NOT_CONFIGURED';
+  circuitState: string;
+  updatedAt: string | null;
+}
