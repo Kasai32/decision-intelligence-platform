@@ -122,7 +122,7 @@ infra/
 | ORM               | Prisma (6.x — see ADR-0003)                  | Type-safe client + file-based migrations                                |
 | Multi-tenancy     | Shared schema, `tenantId` scoping (ADR-0004) | Operationally simple at current stage; RLS deferred                     |
 | Auth              | Self-hosted JWT (ADR-0005)                   | No external account/vendor available to an autonomous build             |
-| Testing           | Jest                                         | One runner across the whole monorepo                                    |
+| Testing           | Jest (unit) + Jest/supertest/testcontainers (e2e, `apps/api/test/`) | One runner; e2e hits a real, disposable Postgres — see DECISION_LOG.md |
 | Lint/format       | ESLint (flat config) + Prettier              | Current ESLint standard, single shared config                           |
 | CI/CD             | GitHub Actions                               | No-cost, zero-setup once pushed to GitHub                               |
 | Security scanning | CodeQL, npm audit, Dependabot, gitleaks      | Baseline SAST + dependency CVEs + secret scanning, all free             |

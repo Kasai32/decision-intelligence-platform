@@ -18,6 +18,7 @@
 | Format everything     | `npm run format`       |
 | Check formatting (CI) | `npm run format:check` |
 | Run all tests         | `npm run test`         |
+| Run apps/api e2e tests (real Postgres via testcontainers — needs Docker) | `npm run test:e2e --workspace apps/api` |
 | Build all workspaces  | `npm run build`        |
 
 ## Adding a new workspace package
