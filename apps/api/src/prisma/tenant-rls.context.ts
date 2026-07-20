@@ -14,6 +14,19 @@ import { PrismaService } from './prisma.service';
 export const tenantRlsStorage = new AsyncLocalStorage<Prisma.TransactionClient>();
 
 /**
+ * Prisma's own interactive-transaction default (5000ms) assumes the whole
+ * transaction body is DB-bound work. Since `fn` here is the entire request
+ * handler (see `TenantRlsInterceptor`), anything that awaits a slow
+ * external call while "inside" the request — AI drafting's real LLM call
+ * (ADR-0018) is the first example, observed taking ~14s — blew past that
+ * default and got killed mid-request ("Transaction already closed") even
+ * though no actual DB work was slow. Raised well above any real request's
+ * expected duration; normal DB-only requests still release the connection
+ * in milliseconds regardless of this ceiling.
+ */
+const TRANSACTION_TIMEOUT_MS = 30_000;
+
+/**
  * Opens one Postgres transaction, sets `app.tenant_id` for its duration
  * (via `set_config(..., true)` — the parameterized, `SET LOCAL`-equivalent
  * form; `SET LOCAL` itself doesn't accept bind parameters), and runs `fn`
@@ -27,8 +40,11 @@ export async function runInTenantContext<T>(
   tenantId: string,
   fn: () => Promise<T>,
 ): Promise<T> {
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
-    return tenantRlsStorage.run(tx, fn);
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      return tenantRlsStorage.run(tx, fn);
+    },
+    { timeout: TRANSACTION_TIMEOUT_MS },
+  );
 }

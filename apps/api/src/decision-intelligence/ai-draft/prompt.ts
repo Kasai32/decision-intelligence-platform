@@ -19,7 +19,11 @@ Respond with ONLY a single JSON object, no markdown code fences, no commentary b
     "affectedSystems": string[]
   },
   "criticalRisks": [
-    { "description": string, "likelihood": "LOW" | "MEDIUM" | "HIGH", "impact": "LOW" | "MEDIUM" | "HIGH" }
+    {
+      "description": string,
+      "likelihood": "LOW" | "MEDIUM" | "HIGH",
+      "impact": "LOW" | "MEDIUM" | "HIGH"
+    }
   ],
   "conflictingInformation": string[],
   "recommendedDecision": { "label": string, "description": string, "pros": string[], "cons": string[] },
@@ -32,6 +36,7 @@ Respond with ONLY a single JSON object, no markdown code fences, no commentary b
 }
 
 Rules:
+- "businessImpact.level" and "criticalRisks[].likelihood"/"criticalRisks[].impact" are two DIFFERENT scales — do not mix them up. "businessImpact.level" has four values including CRITICAL. Risk "likelihood" and "impact" have only three values (LOW, MEDIUM, HIGH) — CRITICAL is never valid there. If a risk feels critical, describe that in its "description" text and use "HIGH" for its likelihood/impact fields.
 - Base every claim only on the incident and evidence given to you below. Do not invent systems, people, timelines, or evidence that isn't present.
 - "conflictingInformation" and "immediateNextActions" may be empty arrays — never omit them, never pad them with filler if there is genuinely nothing to report.
 - Do NOT include any confidence score, percentage, certainty value, or a field like "confidence" or "aiCertainty" anywhere in your response — the platform computes those separately from the real evidence, and any such extra field will cause your entire draft to be rejected, not silently ignored.
