@@ -135,6 +135,11 @@ export interface ConfidenceDimensions {
   aiCertainty: number;
 }
 
+/** GET /decision-intelligence/ai-status — see ADR-0018. */
+export interface AiDraftStatus {
+  available: boolean;
+}
+
 /** The qualitative fields a caller supplies to POST /incidents/:id/analyze — see SubmitIntelligenceAnalysisDto. */
 export interface SubmitIntelligenceAnalysisInput {
   situationSummary: string;

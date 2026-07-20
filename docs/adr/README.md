@@ -30,3 +30,4 @@ An ADR captures a single significant, hard-to-reverse architectural decision: th
 | [0015](0015-postgres-row-level-security.md)              | Postgres Row-Level Security as tenant-isolation defense-in-depth                       | Accepted                       |
 | [0016](0016-decision-outcome-calibration.md)             | Decision outcome calibration: closing the loop on the confidence model                 | Accepted                       |
 | [0017](0017-multi-tenant-login.md)                       | Multi-tenant login: a tenant-selection step, not a blocked account                     | Accepted                       |
+| [0018](0018-ai-drafting-for-decision-intelligence.md)    | AI drafting for the Decision Intelligence Engine (Anthropic Claude, draft-only)        | Accepted                       |

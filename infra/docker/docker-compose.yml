@@ -36,6 +36,11 @@ services:
       JWT_ACCESS_TTL_SECONDS: 900
       # Dev-only default (see ADR-0012 / apps/api/.env.example) — override for any non-local environment.
       INTEGRATION_CREDENTIALS_ENCRYPTION_KEY: dev-only-change-me
+      # Optional (see ADR-0018 / apps/api/.env.example) — passed through from
+      # the host shell/.env, never hardcoded here. Unset -> AI drafting is
+      # unavailable, everything else works exactly as before.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
     ports:
       - '3001:3001'
     depends_on:

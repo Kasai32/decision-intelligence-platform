@@ -39,7 +39,7 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 - No cloud provider, hosting target, or deployment environment specified anywhere in the source roadmap.
 - No specific compliance/regulatory requirement (SOC2, HIPAA, etc.) was specified, despite the enterprise-integration surface (Sentinel, Splunk, etc.) suggesting one may eventually apply.
 - **No real integration credentials exist for any of the ten Phase 6 systems.** The resilience/config/webhook architecture (ADR-0012) is real and fully tested against encrypted fixtures and a simulated network layer (`NetworkSimulator`); actual ServiceNow/Slack/etc. API calls are not. A real implementation only needs to implement the `NetworkSimulator` interface for that provider — nothing else changes.
-- **No LLM integration exists in this environment.** Neither the Decision Intelligence Engine (Phase 4) nor Reporting (Phase 5) generate narrative/judgment content via any algorithm. Qualitative content is always either human-supplied or a factual template over real data — never fabricated.
+- **The Decision Intelligence Engine (Phase 4) can now draft via a real LLM (ADR-0018, Anthropic Claude)** — but only as an editable draft; a human still submits every analysis, unchanged. No API key exists in this environment, so this has been verified live only on its unconfigured (graceful-degradation) path, never against the real Anthropic API — the user needs to add `ANTHROPIC_API_KEY` and exercise it once for the first real run. Reporting (Phase 5) is unaffected and still uses factual templates only, never fabricated narrative — extending AI drafting there was deliberately deferred, not done in the same pass (see ADR-0018's alternatives).
 
 ## Decisions made in Phase 6 (see DECISION_LOG.md / ADR-0012 for full rationale)
 
@@ -91,7 +91,7 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 
 - Hosting/deployment target (needed before CI/CD can deploy anything, not just build/test it).
 - Email delivery provider (needed for real invite/password-reset flows).
-- Real LLM integration for AI Output Contract / brief narrative content — needs an API key/credential and a product decision on which provider.
+- The AI drafting seam (ADR-0018) exists and works on its unconfigured path — still needs a real `ANTHROPIC_API_KEY` to verify the actual model call for the first time, and a decision on whether to extend it to Executive Brief/Decision Report narrative (Reporting, ADR-0011) once it's proven out for Decision Intelligence Engine.
 - Real integration credentials per Phase 6 system, see constraint above — the seam (`NetworkSimulator`) is ready.
 - Circuit-breaker state is in-process memory only — would need a shared store (Redis) for a multi-replica deployment (see ADR-0012, explicitly out of scope for this single-instance MVP).
 - Frontend refresh-token handling (access token expiry currently just breaks API calls with no silent refresh) — worth hardening before real usage.
