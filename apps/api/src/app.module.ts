@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ActionsModule } from './actions/actions.module';
 import { AuthModule } from './auth/auth.module';
 import { DecisionIntelligenceModule } from './decision-intelligence/decision-intelligence.module';
@@ -18,6 +20,9 @@ import { TenantsModule } from './tenants/tenants.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Global baseline rate limit (100 req/min per IP); auth.controller.ts
+    // tightens this further on /auth/login and /auth/register.
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 100 }]),
     PrismaModule,
     IntegrationsModule,
     AuthModule,
@@ -33,5 +38,6 @@ import { TenantsModule } from './tenants/tenants.module';
     SimulationModule,
     HealthModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

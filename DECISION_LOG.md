@@ -540,3 +540,15 @@ infra/          — Docker, CI/CD-adjacent infra config
 **Status:** Done. Updated `decision-intelligence-engine.service.spec.ts` (the two tests that asserted `result.confidenceDimensions.X` now assert the flat `result.X` fields directly, using a `create` mock that echoes back its `data` argument instead of a hand-typed stub, plus an explicit assertion that `confidenceDimensions` is no longer a property on the result) and `IntelligenceAnalysisForm.test.tsx` (mock POST response is now flat, matching the real API; the "must not leak `confidenceDimensions`" assertion was removed since there's nothing to leak anymore). All three workspaces still green: 175 `apps/api` + 40 `apps/web` + 1 `packages/shared` = 216 tests, `lint`/`build`/`test` all pass.
 
 ---
+
+## 2026-07-20 — Rate limiting + Helmet security headers (first of a critical-review remediation pass)
+
+**Context:** A critical review of the whole platform (requested by the user, not tied to any roadmap phase) flagged concrete production/security gaps: no rate limiting on `/auth/login`/`/auth/register` (brute-force/credential-stuffing exposure), no baseline security headers, no structured logging, no e2e tests against a real database, and no defense-in-depth for tenant isolation beyond app-code discipline. The user asked for all of it fixed, in priority order, with the Decision Intelligence Engine's honesty-of-branding question (heuristic vs. genuinely learned) tackled last as a design decision. This is the first item.
+
+**Decision:** Added `@nestjs/throttler` globally (`ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 100 }])` + `APP_GUARD`) — a 100 req/min per-IP baseline on every route — and a tighter `@Throttle({ default: { limit: 5, ttl: 60_000 } })` on `POST /auth/login` and `POST /auth/register` specifically, since those are the two endpoints where brute-forcing/enumeration actually matters. Added `helmet()` in `main.ts`, with `contentSecurityPolicy: false` — the default CSP blocks `swagger-ui-express`'s inline scripts/styles (mounted at `/api/v1/docs`); every other helmet protection (HSTS, X-Frame-Options, X-Content-Type-Options, X-DNS-Prefetch-Control, etc.) still applies.
+
+**Rationale:** These are both essentially zero-tradeoff hardening steps for an app with no existing rate limiting or security headers at all — the only judgment call was the CSP exception for Swagger, and scoping a real CSP to non-docs routes is left as a documented future step rather than blocking this change on solving it now.
+
+**Status:** Done, verified live (not just unit-tested, since there's no e2e suite yet — see the next entry): ran the real app against a real `docker compose` Postgres, confirmed `curl -D-` on `/health` shows all the new helmet headers, and confirmed 5 rapid `POST /auth/login` attempts succeed (401, wrong credentials) followed by a 6th and 7th returning `429`. `/api/v1/docs` still returns `200` with CSP disabled. All 216 existing tests unaffected (they mock services directly, never bootstrap the full `AppModule`) — lint/build/test all pass.
+
+---

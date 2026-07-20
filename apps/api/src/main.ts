@@ -5,6 +5,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { IncomingMessage } from 'node:http';
 import { json, urlencoded } from 'express';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
@@ -28,6 +29,12 @@ function rawBodySaver(
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  // CSP disabled here: swagger-ui-express (mounted below at /api/v1/docs)
+  // relies on inline scripts/styles that helmet's default CSP blocks. Every
+  // other helmet protection (HSTS, X-Frame-Options, X-Content-Type-Options,
+  // etc.) still applies. A CSP scoped to non-docs routes is a reasonable
+  // future hardening step, not done here to keep this change additive.
+  app.use(helmet({ contentSecurityPolicy: false }));
   app.use(json({ verify: rawBodySaver }));
   app.use(urlencoded({ verify: rawBodySaver, extended: true }));
 
