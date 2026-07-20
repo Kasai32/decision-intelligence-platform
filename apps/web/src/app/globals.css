@@ -121,3 +121,19 @@
 .animate-pulse-danger {
   animation: pulse-danger 1.2s ease-in-out infinite;
 }
+
+@keyframes cursor-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/** A live "still generating" caret — see ADR-0020's streaming AI draft. */
+.animate-cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
+}

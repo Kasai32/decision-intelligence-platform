@@ -53,4 +53,28 @@ export class AnthropicLlmClient implements LlmClient {
     }
     return textBlock.text;
   }
+
+  async *generateTextStream({
+    system,
+    user,
+  }: LlmGenerateParams): AsyncGenerator<string, void, void> {
+    if (!this.client) {
+      throw new ServiceUnavailableException(
+        'AI drafting is not configured — set ANTHROPIC_API_KEY.',
+      );
+    }
+
+    const stream = this.client.messages.stream({
+      model: this.model,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      system,
+      messages: [{ role: 'user', content: user }],
+    });
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        yield event.delta.text;
+      }
+    }
+  }
 }

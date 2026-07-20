@@ -14,6 +14,7 @@ import { DecisionLog } from '../components/DecisionLog';
 import { IncidentDecisionPanel } from '../components/IncidentDecisionPanel';
 import { IntelligenceAnalysisForm } from '../components/IntelligenceAnalysisForm';
 import { IntelligenceAnalysisPanel } from '../components/IntelligenceAnalysisPanel';
+import { LiveSyncIndicator } from '../components/LiveSyncIndicator';
 import { ReportsPanel } from '../components/ReportsPanel';
 import { SeverityBadge } from '../components/SeverityBadge';
 import { Badge } from '../components/ui/badge';
@@ -27,6 +28,15 @@ import { cn } from '../lib/utils';
 
 type LoadState = 'checking-auth' | 'loading' | 'ready' | 'error';
 
+/**
+ * Background refresh interval for the selected incident's command-center
+ * summary/timeline/analyses (see ADR-0020) — so a decision, evidence, or
+ * analysis someone else adds shows up without a manual reload. Short
+ * enough to feel live, long enough to stay well under the app-wide
+ * 100-req/min rate limit even with several tabs open (3 requests/poll).
+ */
+const LIVE_REFRESH_INTERVAL_MS = 8000;
+
 export default function CommandCenterPage() {
   const router = useRouter();
   const [loadState, setLoadState] = useState<LoadState>('checking-auth');
@@ -36,6 +46,7 @@ export default function CommandCenterPage() {
   const [summary, setSummary] = useState<CommandCenterSummary | null>(null);
   const [timeline, setTimeline] = useState<TimelineEvent[] | null>(null);
   const [analyses, setAnalyses] = useState<IntelligenceAnalysis[] | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
 
   useEffect(() => {
     if (!getAccessToken()) {
@@ -61,31 +72,43 @@ export default function CommandCenterPage() {
       setSummary(null);
       setTimeline(null);
       setAnalyses(null);
+      setLastSyncedAt(null);
       return;
     }
+
+    let cancelled = false;
+    // Reset only on incident change, not on every background poll below —
+    // a poll silently replaces already-shown data, it never blanks it out.
     setSummary(null);
     setTimeline(null);
     setAnalyses(null);
-    apiClient
-      .get<CommandCenterSummary>(`/incidents/${selectedIncidentId}/command-center`)
-      .then(setSummary)
-      .catch((err) => {
-        setErrorMessage(err instanceof ApiError ? err.message : 'Failed to load incident');
-      });
-    apiClient
-      .get<TimelineEvent[]>(`/incidents/${selectedIncidentId}/timeline`)
-      .then(setTimeline)
-      .catch((err) => {
-        setErrorMessage(err instanceof ApiError ? err.message : 'Failed to load timeline');
-      });
-    apiClient
-      .get<IntelligenceAnalysis[]>(`/incidents/${selectedIncidentId}/analyses`)
-      .then(setAnalyses)
-      .catch((err) => {
-        setErrorMessage(
-          err instanceof ApiError ? err.message : 'Failed to load intelligence analyses',
-        );
-      });
+    setLastSyncedAt(null);
+
+    function refresh() {
+      Promise.all([
+        apiClient.get<CommandCenterSummary>(`/incidents/${selectedIncidentId}/command-center`),
+        apiClient.get<TimelineEvent[]>(`/incidents/${selectedIncidentId}/timeline`),
+        apiClient.get<IntelligenceAnalysis[]>(`/incidents/${selectedIncidentId}/analyses`),
+      ])
+        .then(([summaryResult, timelineResult, analysesResult]) => {
+          if (cancelled) return;
+          setSummary(summaryResult);
+          setTimeline(timelineResult);
+          setAnalyses(analysesResult);
+          setLastSyncedAt(Date.now());
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setErrorMessage(err instanceof ApiError ? err.message : 'Failed to load incident');
+        });
+    }
+
+    refresh();
+    const interval = setInterval(refresh, LIVE_REFRESH_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [selectedIncidentId]);
 
   function signOut() {
@@ -217,10 +240,15 @@ export default function CommandCenterPage() {
 
           {selectedIncident && (
             <main className="flex-1 overflow-y-auto p-6">
-              <div className="mb-6 flex items-center gap-3">
-                <h2 className="text-xl font-semibold text-foreground">{selectedIncident.title}</h2>
-                <SeverityBadge severity={selectedIncident.severity} />
-                <Badge variant="outline">{selectedIncident.status}</Badge>
+              <div className="mb-6 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-semibold text-foreground">
+                    {selectedIncident.title}
+                  </h2>
+                  <SeverityBadge severity={selectedIncident.severity} />
+                  <Badge variant="outline">{selectedIncident.status}</Badge>
+                </div>
+                <LiveSyncIndicator lastSyncedAt={lastSyncedAt} />
               </div>
 
               {summary ? (

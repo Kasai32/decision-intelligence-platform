@@ -1,0 +1,42 @@
+# 0020. Live progress: streaming AI drafts and background incident refresh
+
+Date: 2026-07-20
+
+## Status
+
+Accepted
+
+## Context
+
+After the explainability pass (ADR-0019), the user's third product critique remained open: "we see no live progress from it." Two concrete instances: the AI draft button froze for 6-15 seconds with zero feedback (a real model call with no visible sign anything was happening), and the Command Center's incident view never updated after the initial load — a decision, evidence item, or analysis someone else added was invisible without a manual page reload. Both read as "the product feels dead," a real credibility problem for something positioning itself as a live command center.
+
+The instruction was explicit: build real live behavior, not a fabricated progress indicator — a fake "thinking…" animation with no relationship to actual model output would be exactly the kind of dishonest polish this codebase's whole culture (ADR-0010's "never a black box," ADR-0011's "no fabricated narrative") already rejects for confidence scores and report content. The same standard applies to progress indicators.
+
+## Decision
+
+### AI draft streaming — real token-by-token generation, not a fake progress bar
+
+`LlmClient` (ADR-0018) gained `generateTextStream()` alongside `generateText()`, implemented in `AnthropicLlmClient` via the Anthropic SDK's `messages.stream()` async-iterating over `content_block_delta` / `text_delta` events. `AiDraftService` exposes this as two methods used together by a new `POST /incidents/:id/analyze/draft/stream` (Server-Sent Events): `prepareDraftPrompt()` (the incident/evidence lookup, RLS-scoped) and `streamDraftText()` (the actual LLM call). The controller streams each raw text chunk as an untyped SSE `data:` event, then once the model finishes, validates the complete accumulated text through the exact same `SubmitIntelligenceAnalysisDto` pipeline `analyze/draft` already used (ADR-0018 — nothing about validation changed, only how the wait is presented) and emits one final `result` event carrying the validated draft. `apps/web`'s `IntelligenceAnalysisForm` consumes this via a hand-rolled SSE parser (`lib/sse.ts`, plain `fetch` + a manual reader — the browser `EventSource` API can only do GET requests with no custom headers, incompatible with this app's bearer-token auth) and shows the raw model text live in a small "drafting…" preview before the form fields populate from the final result.
+
+**A real architecture conflict surfaced and had to be fixed: the global `TenantRlsInterceptor` would have silently broken streaming entirely.** It wraps every JWT-authenticated request via `lastValueFrom(next.handle())`, which collapses a multi-emission Observable down to only its _last_ value — for an SSE route, that would mean every intermediate chunk gets swallowed and only the final event ever reaches the client, defeating the whole feature without ever raising an error. A new `@SkipTenantRls()` decorator (checked via `Reflector`, mirroring the existing `@Roles()` pattern) exempts the streaming route from that global transaction; `AiDraftService.prepareDraftPrompt()` establishes its own RLS context narrowly around just its two DB reads instead, then streams the LLM response entirely outside any transaction — arguably a _better_ pattern than the non-streaming endpoint's, since it no longer needs the earlier ADR-0018 fix (the 30s transaction timeout bump) at all for this route.
+
+**A second, subtler timing issue was found and disclosed rather than hidden.** Nest's SSE machinery commits response headers (HTTP 200, `text/event-stream`) on a 0ms timer unless the request has already failed by then. A failure with zero I/O before it (the `available` check) reliably beats that timer and reports a clean HTTP 503, exactly like the non-streaming endpoint. A failure that requires a real DB round-trip first (e.g. `NotFoundException` from an unknown incident) — confirmed live, repeatedly — always loses that race: headers commit before the rejection happens, so it can only be reported as an in-stream `error` event rather than a 404. The frontend already handles both delivery paths identically, so nothing is functionally broken, but the HTTP status code is not a reliable signal for that specific failure mode — documented explicitly in code rather than presented as a stronger guarantee than it is.
+
+### Live incident refresh — background polling, not a fabricated "live" badge
+
+`apps/web`'s Command Center now re-fetches the selected incident's command-center summary, timeline, and analyses every 8 seconds in the background (`page.tsx`), silently replacing already-shown data rather than blanking it out between polls. A new `LiveSyncIndicator` shows "Synced Xs ago" with a pulsing dot, ticking client-side the same way `CountdownTimer` (ADR-0014) already does — genuinely reflecting when the last successful background fetch landed, not a decorative animation.
+
+## Consequences
+
+- The AI draft experience now matches the genre users already expect from a modern AI product (ChatGPT/Claude.ai-style token streaming) instead of a blocking spinner — verified live against the real Anthropic API, including watching real incremental chunks arrive and the final structured draft resolve correctly.
+- `@SkipTenantRls()` is a new, narrowly-scoped escape hatch from a security-relevant global interceptor. It only exists because `lastValueFrom` cannot safely handle a multi-emission route, and is documented at the point of use specifically so a future SSE (or any other streaming) route doesn't have to rediscover this the hard way — or worse, add one without realizing the global interceptor would silently break it.
+- Background polling adds 3 requests every 8 seconds per open incident view — well inside the existing 100 req/min per-IP rate limit (ADR's rate-limiting entry) even with several tabs open, but a real, ongoing load increase worth knowing about if this ever needs to scale to many concurrent viewers of the same incident. A future iteration could replace this with a WebSocket/SSE push model if polling load becomes real; not justified yet at this stage's scale.
+- The HTTP-status guarantee for the streaming endpoint's error paths is narrower than it might look at first glance — disclosed explicitly in `AiDraftService.prepareDraftPrompt`'s doc comment, the controller's doc comment, and the e2e test's comment, rather than silently letting a passing "unavailable" test imply a broader guarantee that live testing disproved for the "not found" case.
+- The streaming endpoint's "incident not found, mid-stream" failure path can only be reached with a real `ANTHROPIC_API_KEY` configured (the availability check always short-circuits first without one) — meaning it cannot be covered by an automated CI e2e test at all, only verified manually against the real API, which was done live rather than skipped silently.
+
+## Alternatives considered
+
+- **A fake staged-progress UI ("Reading evidence… Drafting… Almost done…") instead of real streaming.** Rejected outright per the explicit instruction and this codebase's standing culture — presenting fabricated progress as if it reflected real work is the same category of dishonesty as a fabricated confidence score.
+- **WebSockets instead of SSE for draft streaming.** Rejected — SSE is one-directional (server → client), which is all this needs; no bidirectional channel, no new connection-management/reconnection-handling infrastructure, and it degrades gracefully through standard HTTP infrastructure (proxies, load balancers) SSE was designed for.
+- **The browser's native `EventSource` API instead of manual `fetch` + stream parsing.** Rejected — `EventSource` can only issue GET requests with no custom headers, incompatible with this app's bearer-token auth (and passing a JWT as a URL query parameter, the common workaround, was rejected as poor practice — logged in server access logs and browser history).
+- **WebSocket/SSE push for live incident updates instead of polling.** Deferred, not rejected — a real push model is more "live" but a materially larger change (a WS gateway, per-tenant/incident subscription management, connection lifecycle handling). Polling at a short interval delivers most of the perceived benefit for a fraction of the implementation risk; worth revisiting if this needs to scale to many simultaneous viewers per incident.

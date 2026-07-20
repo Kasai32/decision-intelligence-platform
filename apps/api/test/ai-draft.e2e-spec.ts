@@ -62,4 +62,25 @@ describe('AI drafting — unconfigured (e2e)', () => {
 
     expect(draft.status).toBe(503);
   });
+
+  it('the streaming endpoint (see ADR-0020) also returns 503, not a crash, before any SSE data is ever sent', async () => {
+    const incident = await request(app.getHttpServer()).post('/api/v1/incidents').set(auth()).send({
+      title: 'Payments outage (streaming)',
+      description: 'Checkout returning 500s',
+      severity: 'HIGH',
+      type: 'CLOUD_OUTAGE',
+    });
+    expect(incident.status).toBe(201);
+
+    const draft = await request(app.getHttpServer())
+      .post(`/api/v1/incidents/${incident.body.id}/analyze/draft/stream`)
+      .set(auth());
+
+    // The unavailable check is the one prepareDraftPrompt failure with zero
+    // I/O before it, so it reliably wins the race against Nest's SSE
+    // header-commit timer and reports a real 503 — see
+    // AiDraftService.prepareDraftPrompt's doc comment (ADR-0020) for why
+    // that's specific to this check, not a general guarantee.
+    expect(draft.status).toBe(503);
+  });
 });

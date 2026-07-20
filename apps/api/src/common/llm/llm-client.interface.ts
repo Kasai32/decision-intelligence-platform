@@ -16,4 +16,13 @@ export interface LlmClient {
 
   /** Returns the model's raw text output. Callers are responsible for parsing/validating it. */
   generateText(params: LlmGenerateParams): Promise<string>;
+
+  /**
+   * Same call, but yields text as the model generates it (see ADR-0020) —
+   * for a live "drafting…" UI instead of a blocking wait. Callers still
+   * validate the *full* accumulated text once the generator completes;
+   * streaming is a presentation concern only, it changes nothing about
+   * what gets validated or accepted.
+   */
+  generateTextStream(params: LlmGenerateParams): AsyncGenerator<string, void, void>;
 }

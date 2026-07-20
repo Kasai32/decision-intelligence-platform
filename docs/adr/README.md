@@ -11,24 +11,25 @@ An ADR captures a single significant, hard-to-reverse architectural decision: th
 
 ## Index
 
-| ADR                                                      | Title                                                                                  | Status                         |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------ |
-| [0001](0001-record-architecture-decisions.md)            | Record architecture decisions as ADRs                                                  | Accepted                       |
-| [0002](0002-core-technology-stack.md)                    | Core technology stack (TypeScript/NestJS/Next.js/PostgreSQL/npm workspaces)            | Accepted                       |
-| [0003](0003-orm-prisma.md)                               | ORM: Prisma                                                                            | Accepted                       |
-| [0004](0004-multi-tenancy-shared-schema.md)              | Multi-tenancy: shared schema with `tenantId` scoping                                   | Accepted                       |
-| [0005](0005-self-hosted-jwt-auth.md)                     | Authentication: self-hosted email/password + JWT                                       | Accepted                       |
-| [0006](0006-incident-decision-domain-model.md)           | Incident/Decision/Evidence/TimelineEvent/Action domain model                           | Accepted                       |
-| [0007](0007-state-transition-guards.md)                  | State transition guard engine + Principle 1 (AI decides nothing alone)                 | Accepted                       |
-| [0008](0008-phase6-integration-abstraction.md)           | Phase 6 integration abstraction (mock providers)                                       | Accepted                       |
-| [0009](0009-command-center-no-blank-state.md)            | Executive Command Center: server-shaped "no blank state" contract                      | Accepted (amended by ADR-0013) |
-| [0010](0010-decision-intelligence-confidence-model.md)   | Decision Intelligence Engine: multidimensional confidence model + AI Output Contract   | Accepted                       |
-| [0011](0011-phase5-reporting-architecture.md)            | Phase 5 Reporting: immutable generated artifacts, factual auto-assembly                | Accepted                       |
-| [0012](0012-integration-resilience-and-tenant-config.md) | Integration resilience engine + per-tenant encrypted configuration                     | Accepted                       |
-| [0013](0013-simulation-scenario-architecture.md)         | User validation test scenarios: SimulationScenarioService (amends ADR-0009)            | Accepted                       |
-| [0014](0014-frontend-design-system.md)                   | Frontend design system: Tailwind v4 + CVA/Radix primitives, dark theme, SLA countdowns | Accepted                       |
-| [0015](0015-postgres-row-level-security.md)              | Postgres Row-Level Security as tenant-isolation defense-in-depth                       | Accepted                       |
-| [0016](0016-decision-outcome-calibration.md)             | Decision outcome calibration: closing the loop on the confidence model                 | Accepted                       |
-| [0017](0017-multi-tenant-login.md)                       | Multi-tenant login: a tenant-selection step, not a blocked account                     | Accepted                       |
-| [0018](0018-ai-drafting-for-decision-intelligence.md)    | AI drafting for the Decision Intelligence Engine (Anthropic Claude, draft-only)        | Accepted                       |
-| [0019](0019-confidence-score-explainability.md)          | Confidence score explainability: "show your work" in the API and UI                    | Accepted                       |
+| ADR                                                       | Title                                                                                  | Status                         |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------ |
+| [0001](0001-record-architecture-decisions.md)             | Record architecture decisions as ADRs                                                  | Accepted                       |
+| [0002](0002-core-technology-stack.md)                     | Core technology stack (TypeScript/NestJS/Next.js/PostgreSQL/npm workspaces)            | Accepted                       |
+| [0003](0003-orm-prisma.md)                                | ORM: Prisma                                                                            | Accepted                       |
+| [0004](0004-multi-tenancy-shared-schema.md)               | Multi-tenancy: shared schema with `tenantId` scoping                                   | Accepted                       |
+| [0005](0005-self-hosted-jwt-auth.md)                      | Authentication: self-hosted email/password + JWT                                       | Accepted                       |
+| [0006](0006-incident-decision-domain-model.md)            | Incident/Decision/Evidence/TimelineEvent/Action domain model                           | Accepted                       |
+| [0007](0007-state-transition-guards.md)                   | State transition guard engine + Principle 1 (AI decides nothing alone)                 | Accepted                       |
+| [0008](0008-phase6-integration-abstraction.md)            | Phase 6 integration abstraction (mock providers)                                       | Accepted                       |
+| [0009](0009-command-center-no-blank-state.md)             | Executive Command Center: server-shaped "no blank state" contract                      | Accepted (amended by ADR-0013) |
+| [0010](0010-decision-intelligence-confidence-model.md)    | Decision Intelligence Engine: multidimensional confidence model + AI Output Contract   | Accepted                       |
+| [0011](0011-phase5-reporting-architecture.md)             | Phase 5 Reporting: immutable generated artifacts, factual auto-assembly                | Accepted                       |
+| [0012](0012-integration-resilience-and-tenant-config.md)  | Integration resilience engine + per-tenant encrypted configuration                     | Accepted                       |
+| [0013](0013-simulation-scenario-architecture.md)          | User validation test scenarios: SimulationScenarioService (amends ADR-0009)            | Accepted                       |
+| [0014](0014-frontend-design-system.md)                    | Frontend design system: Tailwind v4 + CVA/Radix primitives, dark theme, SLA countdowns | Accepted                       |
+| [0015](0015-postgres-row-level-security.md)               | Postgres Row-Level Security as tenant-isolation defense-in-depth                       | Accepted                       |
+| [0016](0016-decision-outcome-calibration.md)              | Decision outcome calibration: closing the loop on the confidence model                 | Accepted                       |
+| [0017](0017-multi-tenant-login.md)                        | Multi-tenant login: a tenant-selection step, not a blocked account                     | Accepted                       |
+| [0018](0018-ai-drafting-for-decision-intelligence.md)     | AI drafting for the Decision Intelligence Engine (Anthropic Claude, draft-only)        | Accepted                       |
+| [0019](0019-confidence-score-explainability.md)           | Confidence score explainability: "show your work" in the API and UI                    | Accepted                       |
+| [0020](0020-live-progress-streaming-draft-and-polling.md) | Live progress: streaming AI drafts (SSE) and background incident refresh               | Accepted                       |
