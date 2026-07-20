@@ -611,3 +611,15 @@ infra/          — Docker, CI/CD-adjacent infra config
 **Status:** Done. New unit tests for `DecisionOutcomesService` (gating, analysis-linking, conflict-on-double-record) and `CalibrationService` (exact mean/difference computation from a hand-built fixture sample, insufficient-data marking), plus `apps/web` tests for `DecisionOutcomePanel` and the `/calibration` page. A new e2e spec (`decision-outcomes.e2e-spec.ts`) drives a real decision lifecycle (open → analyze with real evidence → decide → close → record outcome) three times against a real Postgres and confirms the calibration report's computed means match the real evidence-completeness values (100 for the high-evidence/GOOD run, 0 for the two low-evidence/BAD runs) — a live, non-mocked proof the whole pipeline computes correctly end-to-end. 236 unit tests (188 `apps/api` + 47 `apps/web` + 1 `packages/shared`) and 9 e2e tests (6 suites) all green; `lint`/`build` clean across all workspaces. This closes the critical-review remediation pass — all 5 items done.
 
 ---
+
+## 2026-07-20 — Scoped CSP, closing a CodeQL-flagged finding
+
+**Context:** Making the GitHub repo public (to unlock free CodeQL code scanning) surfaced its first real result: `js/insecure-helmet-configuration`, severity `high`, on `apps/api/src/main.ts`'s `helmet({ contentSecurityPolicy: false })` — exactly the tradeoff flagged as "a documented future step" in the rate-limiting/Helmet entry above, now backed by an actual scanner finding instead of just a self-noted TODO.
+
+**Decision:** `app.use(helmet())` now runs with its strict default CSP (`default-src 'self'`, `script-src 'self'`, `object-src 'none'`, etc.) on every route. A second, path-scoped `helmet()` call registered on `/api/v1/docs` overrides just the CSP header for that one route — `script-src`/`style-src` gain `'unsafe-inline'` (Swagger UI's inline bootstrap script/styles need it) and `img-src` gains `data:`; every other directive, and every other helmet header (HSTS, X-Frame-Options, X-Content-Type-Options, etc.), is untouched everywhere.
+
+**Rationale:** Express runs both `app.use()` middlewares in registration order for a request to `/api/v1/docs`, so the second call's `res.setHeader` cleanly overwrites the first's CSP value for that path only — no route-matching logic of our own needed, and the fix is additive (nothing routes through `contentSecurityPolicy: false` anymore, which is what the CodeQL query specifically flags). Swagger UI's own JS/CSS assets are served self-hosted at relative paths under `/api/v1/docs/docs/*`, so `'self'` already covers them; `'unsafe-inline'` is only needed for the small inline snippet Swagger UI embeds directly in the HTML page.
+
+**Status:** Done, verified live: ran the real app against the real Postgres, confirmed `curl -D-` on `/health` now shows a full strict CSP (previously absent entirely) with all other helmet headers intact, confirmed `/api/v1/docs` returns `200` with a working Swagger UI (page loads, all JS/CSS assets resolve) under the permissive-but-explicit override, and confirmed the override doesn't leak to other routes. All 188 `apps/api` unit tests unaffected.
+
+---

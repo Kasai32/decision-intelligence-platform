@@ -20,12 +20,24 @@ async function bootstrap() {
     bufferLogs: true,
   });
   app.useLogger(app.get(Logger));
-  // CSP disabled here: swagger-ui-express (mounted below at /api/v1/docs)
-  // relies on inline scripts/styles that helmet's default CSP blocks. Every
-  // other helmet protection (HSTS, X-Frame-Options, X-Content-Type-Options,
-  // etc.) still applies. A CSP scoped to non-docs routes is a reasonable
-  // future hardening step, not done here to keep this change additive.
-  app.use(helmet({ contentSecurityPolicy: false }));
+  // Strict CSP everywhere by default. swagger-ui-express (mounted below at
+  // /api/v1/docs) needs inline scripts/styles to render, so that one path
+  // gets a second, more permissive helmet pass that overrides just the CSP
+  // header for it — every other route keeps the strict default.
+  app.use(helmet());
+  app.use(
+    `/${API_PREFIX}/docs`,
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          'script-src': ["'self'", "'unsafe-inline'"],
+          'style-src': ["'self'", "'unsafe-inline'"],
+          'img-src': ["'self'", 'data:'],
+        },
+      },
+    }),
+  );
   app.use(json({ verify: rawBodySaver }));
   app.use(urlencoded({ verify: rawBodySaver, extended: true }));
 
