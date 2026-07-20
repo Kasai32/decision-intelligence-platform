@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { DecisionIntelligenceModule } from './decision-intelligence/decision-intelligence.module';
 import { DecisionReportsModule } from './decision-reports/decision-reports.module';
 import { DecisionsModule } from './decisions/decisions.module';
+import { LoggerModule } from './common/logging/logger.module';
 import { EvidenceModule } from './evidence/evidence.module';
 import { ExecutiveBriefsModule } from './executive-briefs/executive-briefs.module';
 import { HealthModule } from './health/health.module';
@@ -20,6 +21,7 @@ import { TenantsModule } from './tenants/tenants.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    LoggerModule,
     // Global baseline rate limit (100 req/min per IP); auth.controller.ts
     // tightens this further on /auth/login and /auth/register.
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 100 }]),

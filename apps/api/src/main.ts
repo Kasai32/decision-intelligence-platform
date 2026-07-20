@@ -6,6 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { IncomingMessage } from 'node:http';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
@@ -28,7 +29,13 @@ function rawBodySaver(
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+    // Buffer bootstrap logs until the Pino logger below is wired up, so
+    // nothing is lost/printed via Nest's default console logger first.
+    bufferLogs: true,
+  });
+  app.useLogger(app.get(Logger));
   // CSP disabled here: swagger-ui-express (mounted below at /api/v1/docs)
   // relies on inline scripts/styles that helmet's default CSP blocks. Every
   // other helmet protection (HSTS, X-Frame-Options, X-Content-Type-Options,
