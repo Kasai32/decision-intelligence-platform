@@ -1,15 +1,17 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from '@prisma/client';
+import { Membership, Role, Tenant } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
+import { SelectTenantDto } from './dto/select-tenant.dto';
 import { generateOpaqueToken, hashToken } from './token.util';
-import { AuthTokens, JwtPayload } from './types';
+import { AuthTokens, JwtPayload, TenantSelectionPayload, TenantSelectionRequired } from './types';
 
 const REFRESH_TOKEN_TTL_DAYS = 30;
+const TENANT_SELECTION_TOKEN_TTL_SECONDS = 300;
 
 function slugify(name: string): string {
   return (
@@ -57,10 +59,10 @@ export class AuthService {
     return this.issueTokens(user.id, user.email, membership.tenantId, membership.role);
   }
 
-  async login(dto: LoginDto): Promise<AuthTokens> {
+  async login(dto: LoginDto): Promise<AuthTokens | TenantSelectionRequired> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
-      include: { memberships: true },
+      include: { memberships: { include: { tenant: true } } },
     });
     if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
       throw new UnauthorizedException('Invalid email or password');
@@ -69,12 +71,40 @@ export class AuthService {
       throw new UnauthorizedException('This account is not a member of any tenant');
     }
     if (user.memberships.length > 1) {
-      throw new UnauthorizedException(
-        'This account belongs to multiple tenants; tenant selection is not yet supported',
-      );
+      return this.issueTenantSelection(user.id, user.memberships);
     }
 
     const membership = user.memberships[0];
+    return this.issueTokens(user.id, user.email, membership.tenantId, membership.role);
+  }
+
+  /**
+   * Second step for accounts with >1 tenant membership (Principle 1 applied
+   * to auth: which tenant to act as is never inferred, always an explicit
+   * human choice). `tenantSelectionToken` proves the password check in
+   * login() already passed — this endpoint never re-checks the password.
+   */
+  async selectTenant(dto: SelectTenantDto): Promise<AuthTokens> {
+    let payload: TenantSelectionPayload;
+    try {
+      payload = await this.jwtService.verifyAsync<TenantSelectionPayload>(dto.tenantSelectionToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired tenant selection token');
+    }
+    if (payload.purpose !== 'tenant-selection') {
+      throw new UnauthorizedException('Invalid or expired tenant selection token');
+    }
+
+    const [user, membership] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: payload.sub } }),
+      this.prisma.membership.findUnique({
+        where: { userId_tenantId: { userId: payload.sub, tenantId: dto.tenantId } },
+      }),
+    ]);
+    if (!user || !membership) {
+      throw new UnauthorizedException('You are not a member of that tenant');
+    }
+
     return this.issueTokens(user.id, user.email, membership.tenantId, membership.role);
   }
 
@@ -110,6 +140,26 @@ export class AuthService {
       where: { tokenHash, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+  }
+
+  private async issueTenantSelection(
+    userId: string,
+    memberships: (Membership & { tenant: Tenant })[],
+  ): Promise<TenantSelectionRequired> {
+    const payload: TenantSelectionPayload = { sub: userId, purpose: 'tenant-selection' };
+    const tenantSelectionToken = await this.jwtService.signAsync(payload, {
+      expiresIn: TENANT_SELECTION_TOKEN_TTL_SECONDS,
+    });
+
+    return {
+      tenantSelectionRequired: true,
+      tenantSelectionToken,
+      tenants: memberships.map((m) => ({
+        id: m.tenant.id,
+        name: m.tenant.name,
+        slug: m.tenant.slug,
+      })),
+    };
   }
 
   private async issueTokens(

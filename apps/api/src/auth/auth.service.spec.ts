@@ -19,7 +19,7 @@ describe('AuthService', () => {
     };
     $transaction: jest.Mock;
   };
-  let jwtService: { signAsync: jest.Mock };
+  let jwtService: { signAsync: jest.Mock; verifyAsync: jest.Mock };
   let service: AuthService;
 
   beforeEach(() => {
@@ -35,7 +35,10 @@ describe('AuthService', () => {
       },
       $transaction: jest.fn(async (fn: (tx: typeof prisma) => unknown) => fn(prisma)),
     };
-    jwtService = { signAsync: jest.fn().mockResolvedValue('signed.jwt.token') };
+    jwtService = {
+      signAsync: jest.fn().mockResolvedValue('signed.jwt.token'),
+      verifyAsync: jest.fn(),
+    };
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwtService as unknown as JwtService,
@@ -118,6 +121,9 @@ describe('AuthService', () => {
       prisma.refreshToken.create.mockResolvedValue({});
 
       const result = await service.login({ email: 'a@example.com', password: 'correct-password' });
+      if ('tenantSelectionRequired' in result) {
+        throw new Error('expected AuthTokens for a single-tenant login');
+      }
       expect(result.accessToken).toBe('signed.jwt.token');
     });
 
@@ -133,6 +139,101 @@ describe('AuthService', () => {
       await expect(
         service.login({ email: 'a@example.com', password: 'correct-password' }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('returns a tenant selection token (not access tokens) for an account with multiple memberships', async () => {
+      const passwordHash = await argon2.hash('correct-password');
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'a@example.com',
+        passwordHash,
+        memberships: [
+          {
+            tenantId: 'tenant-1',
+            role: Role.OWNER,
+            tenant: { id: 'tenant-1', name: 'Acme', slug: 'acme' },
+          },
+          {
+            tenantId: 'tenant-2',
+            role: Role.MEMBER,
+            tenant: { id: 'tenant-2', name: 'Globex', slug: 'globex' },
+          },
+        ],
+      });
+
+      const result = await service.login({ email: 'a@example.com', password: 'correct-password' });
+
+      if (!('tenantSelectionRequired' in result)) {
+        throw new Error('expected TenantSelectionRequired for a multi-tenant login');
+      }
+      expect(result.tenantSelectionToken).toBe('signed.jwt.token');
+      expect(result.tenants).toEqual([
+        { id: 'tenant-1', name: 'Acme', slug: 'acme' },
+        { id: 'tenant-2', name: 'Globex', slug: 'globex' },
+      ]);
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
+        { sub: 'user-1', purpose: 'tenant-selection' },
+        { expiresIn: 300 },
+      );
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('selectTenant', () => {
+    it('issues real tokens for a tenant the user actually belongs to', async () => {
+      jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1', purpose: 'tenant-selection' });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'a@example.com' });
+      prisma.membership.findUnique.mockResolvedValue({
+        userId: 'user-1',
+        tenantId: 'tenant-2',
+        role: Role.MEMBER,
+      });
+      prisma.refreshToken.create.mockResolvedValue({});
+
+      const result = await service.selectTenant({
+        tenantSelectionToken: 'valid.token',
+        tenantId: 'tenant-2',
+      });
+
+      expect(result.accessToken).toBe('signed.jwt.token');
+      expect(prisma.membership.findUnique).toHaveBeenCalledWith({
+        where: { userId_tenantId: { userId: 'user-1', tenantId: 'tenant-2' } },
+      });
+    });
+
+    it('rejects an invalid or expired tenant selection token', async () => {
+      jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+      await expect(
+        service.selectTenant({ tenantSelectionToken: 'garbage', tenantId: 'tenant-2' }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('rejects a token whose purpose is not tenant-selection (defense in depth vs. a normal access token being replayed here)', async () => {
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'user-1',
+        email: 'a@example.com',
+        tenantId: 'tenant-1',
+        role: Role.OWNER,
+      });
+
+      await expect(
+        service.selectTenant({ tenantSelectionToken: 'an-access-token', tenantId: 'tenant-2' }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('rejects selecting a tenant the user is not actually a member of', async () => {
+      jwtService.verifyAsync.mockResolvedValue({ sub: 'user-1', purpose: 'tenant-selection' });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'a@example.com' });
+      prisma.membership.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.selectTenant({
+          tenantSelectionToken: 'valid.token',
+          tenantId: 'someone-elses-tenant',
+        }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
     });
   });
 

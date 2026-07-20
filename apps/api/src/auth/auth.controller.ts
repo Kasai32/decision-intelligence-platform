@@ -5,7 +5,8 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
-import { AuthTokens } from './types';
+import { SelectTenantDto } from './dto/select-tenant.dto';
+import { AuthTokens, TenantSelectionRequired } from './types';
 
 /** Tighter than the app-wide default (100/min) — credential-guessing and account-enumeration protection. */
 const AUTH_THROTTLE = { default: { limit: 5, ttl: 60_000 } };
@@ -24,8 +25,15 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle(AUTH_THROTTLE)
-  login(@Body() dto: LoginDto): Promise<AuthTokens> {
+  login(@Body() dto: LoginDto): Promise<AuthTokens | TenantSelectionRequired> {
     return this.authService.login(dto);
+  }
+
+  @Post('select-tenant')
+  @HttpCode(HttpStatus.OK)
+  @Throttle(AUTH_THROTTLE)
+  selectTenant(@Body() dto: SelectTenantDto): Promise<AuthTokens> {
+    return this.authService.selectTenant(dto);
   }
 
   @Post('refresh')

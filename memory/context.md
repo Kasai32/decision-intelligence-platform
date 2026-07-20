@@ -81,11 +81,16 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 - `MIN_SAMPLE_SIZE = 5` (combined GOOD+BAD per dimension) is a disclosed placeholder, not a real power-analysis result — chosen to be reachable without a large historical corpus in this environment; revisit once real usage volume is known.
 - Calibration is a measurement/feedback layer only — it does not (yet) feed back into ADR-0010's actual scoring weights (`RELIABILITY_BY_SOURCE_CATEGORY` etc.). That's a natural next step once enough labeled outcomes exist to justify it.
 
+## Decisions made in the multi-tenant login fix (see DECISION_LOG.md / ADR-0017 for full rationale)
+
+- An account with >1 tenant membership now gets a `tenantSelectionRequired` response from `POST /auth/login` instead of an unconditional 401 — 0 or 1 memberships behave exactly as before.
+- The tenant-selection token is a separate, short-lived (5 min), unpersisted JWT carrying only `{ sub, purpose: 'tenant-selection' }` — `JwtStrategy` explicitly rejects any token missing `tenantId`/`role`, so it can never work as a normal bearer token.
+- `POST /auth/select-tenant` never re-checks the password — the selection token is the proof that already happened.
+
 ## Open questions for later work
 
 - Hosting/deployment target (needed before CI/CD can deploy anything, not just build/test it).
 - Email delivery provider (needed for real invite/password-reset flows).
-- Multi-tenant login/tenant-selection flow (a user with >1 tenant membership still cannot log in — Phase 2 limitation, unchanged since).
 - Real LLM integration for AI Output Contract / brief narrative content — needs an API key/credential and a product decision on which provider.
 - Real integration credentials per Phase 6 system, see constraint above — the seam (`NetworkSimulator`) is ready.
 - Circuit-breaker state is in-process memory only — would need a shared store (Redis) for a multi-replica deployment (see ADR-0012, explicitly out of scope for this single-instance MVP).

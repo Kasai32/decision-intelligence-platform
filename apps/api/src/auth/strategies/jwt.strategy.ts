@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -15,6 +15,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: JwtPayload): AuthenticatedUser {
+    // Rejects the short-lived tenant-selection token (see AuthService.login /
+    // TenantSelectionPayload) — it's signed with the same secret but carries
+    // neither field, so it must never be usable as a full API credential.
+    if (!payload.tenantId || !payload.role) {
+      throw new UnauthorizedException('Invalid access token');
+    }
     return {
       userId: payload.sub,
       email: payload.email,

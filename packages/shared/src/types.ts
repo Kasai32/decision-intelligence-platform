@@ -46,6 +46,23 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+export interface TenantOption {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+/**
+ * Returned by POST /auth/login instead of AuthTokens when the account
+ * belongs to more than one tenant. POST /auth/select-tenant with this token
+ * and a chosen tenantId completes login.
+ */
+export interface TenantSelectionRequired {
+  tenantSelectionRequired: true;
+  tenantSelectionToken: string;
+  tenants: TenantOption[];
+}
+
 /** See ADR-0013 — user validation test scenarios. */
 export type SimulationScenario = 'CYBER_RANSOMWARE' | 'CLOUD_OUTAGE_PARTIAL_EVIDENCE';
 
