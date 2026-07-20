@@ -415,8 +415,18 @@ export interface Entity {
   name: string;
   aliases: string[];
   attributes: Record<string, unknown> | null;
+  /** WGS84 — either both are set or neither (see ADR-0022). */
+  latitude: number | null;
+  longitude: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** GET /entities/nearby result item — see ADR-0022. */
+export interface NearbyEntity extends Entity {
+  latitude: number;
+  longitude: number;
+  distanceKm: number;
 }
 
 export type RelationshipType =

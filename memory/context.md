@@ -6,7 +6,7 @@ Last updated: 2026-07-20.
 
 The user set new direction beyond the original incident-response roadmap: this platform's actual mission is **government intelligence analysis** — pulling together data from many sources, finding hidden connections between people/organizations/locations/events, visualizing those relationships, and helping analysts make faster, better decisions. Explicitly compared to Palantir Gotham in _capability_ (data integration, link analysis, geospatial analysis, secure analyst collaboration), but the stated core mission is the opposite of Gotham's real-world reputation: make analysts faster and smarter **while protecting civil liberties by keeping a human analyst in control, not automated surveillance**.
 
-This is not a scrapped direction — it's additive. Every principle already built here (Principle 1 — no automation decides alone, ADR-0007; the confidence-explainability standard, ADR-0019; RLS-based tenant isolation, ADR-0015) is exactly the discipline this mission needs, just extended from incident response to intelligence analysis. See [ADR-0021](../docs/adr/0021-entity-relationship-graph-and-audit-log.md) for the first concrete step: a real entity-relationship graph plus an analyst-activity audit log. The four capability pillars named by the user (data integration / link analysis / geospatial analysis / secure collaboration) are the roadmap going forward — link analysis is underway; data integration, geospatial, and collaboration are not started.
+This is not a scrapped direction — it's additive. Every principle already built here (Principle 1 — no automation decides alone, ADR-0007; the confidence-explainability standard, ADR-0019; RLS-based tenant isolation, ADR-0015) is exactly the discipline this mission needs, just extended from incident response to intelligence analysis. See [ADR-0021](../docs/adr/0021-entity-relationship-graph-and-audit-log.md) (entity-relationship graph + analyst-activity audit log) and [ADR-0022](../docs/adr/0022-geospatial-entity-search.md) (geospatial entity search — real `latitude`/`longitude` on `Entity`, `GET /entities/nearby`/`GET /entities/map`) for the concrete steps so far. Of the four capability pillars named by the user (data integration / link analysis / geospatial analysis / secure collaboration): link analysis and geospatial analysis are underway; data integration and secure collaboration are not started.
 
 The user also raised using an **open-weight (self-hostable) LLM** instead of / alongside the Anthropic API — motivated by data sovereignty for sensitive government data, not just cost. `LlmClient` (ADR-0018) was deliberately built provider-agnostic for exactly this kind of swap; a self-hosted model served via Ollama/vLLM is the natural next `LlmClient` implementation, not yet built.
 
@@ -120,13 +120,20 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 - `AuditLogEntry` is append-only (no update/delete anywhere) and requires a stated `reason` for `SEARCH`/`VIEW_ENTITY`/`VIEW_GRAPH` — enforced at the DTO layer (400 without one), not optional. `GET /audit-log` is `@Roles(Role.ADMIN)`-gated.
 - No frontend exists yet for entities/relationships/audit-log review — `packages/shared` has the types, `apps/web` has no pages. Next natural step once UI work resumes on this track.
 
+## Decisions made in the geospatial entity search phase (see DECISION_LOG.md / ADR-0022 for full rationale)
+
+- `Entity.latitude`/`Entity.longitude` are real Float columns (not buried in `attributes` JSON) — both-or-neither, range-validated in `CreateEntityDto`. Any entity type can carry coordinates, not just `LOCATION`.
+- Distance is computed via Haversine in application code (`entities/geospatial.ts`), not PostGIS — deliberately deferred; fine at current scale since there's no spatial index either way, revisit if a tenant's located-entity count grows large.
+- `GET /entities/nearby` (radius search) and `GET /entities/map` (all located entities) both require the same enforced `reason` purpose-limitation rule as every other entity read.
+
 ## Open questions for later work
 
-- **The four intelligence-mission pillars beyond link analysis (data integration, geospatial analysis, secure collaboration) have no architecture yet** — link analysis (entities/relationships/audit log) is the only one started (ADR-0021).
+- **The four intelligence-mission pillars beyond link analysis + geospatial (data integration, secure collaboration) have no architecture yet** — link analysis (ADR-0021) and geospatial search (ADR-0022) are the two started so far.
 - **An open-weight/self-hosted `LlmClient` implementation** (Ollama/vLLM) — motivated by data sovereignty for sensitive government data, not yet built; the seam (ADR-0018) is ready for it.
-- **No frontend for the entity-relationship graph or the audit log review page** — graph visualization (nodes/edges), an entity search UI, and an ADMIN-facing audit-log viewer are all unbuilt.
+- **No frontend for the entity-relationship graph, geospatial map, or the audit log review page** — graph visualization (nodes/edges), a map view, an entity search UI, and an ADMIN-facing audit-log viewer are all unbuilt.
 - **`getGraph()` is one-hop only** — no recursive N-hop traversal yet; fine for a v1 with no UI to explore deeper graphs anyway.
 - **No dedicated "auditor/compliance" role** — audit-log review currently reuses the existing `ADMIN` role rather than a role that can review but not modify data (separation of duties); deferred until real usage shows whether that distinction matters in practice.
+- **No PostGIS / spatial index** — `nearby`/`map` fetch every located entity and filter in memory; the migration path (PostGIS `geography` column + GiST index + `ST_DWithin`) is disclosed in ADR-0022 but not implemented, since current scale doesn't need it.
 
 - Hosting/deployment target (needed before CI/CD can deploy anything, not just build/test it).
 - Email delivery provider (needed for real invite/password-reset flows).

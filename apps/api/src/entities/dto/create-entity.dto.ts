@@ -3,11 +3,15 @@ import { EntityType } from '@prisma/client';
 import {
   IsArray,
   IsEnum,
+  IsNumber,
   IsObject,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
+  Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 /**
@@ -47,4 +51,23 @@ export class CreateEntityDto {
   @IsOptional()
   @IsString()
   extractedText?: string;
+
+  /**
+   * Both or neither (see ADR-0022) — `ValidateIf` fires for both fields
+   * whenever either is present, so providing only one fails validation on
+   * the missing one instead of silently persisting a half coordinate.
+   */
+  @ApiPropertyOptional({ description: 'WGS84 latitude. Required together with longitude.' })
+  @ValidateIf((o: CreateEntityDto) => o.latitude !== undefined || o.longitude !== undefined)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiPropertyOptional({ description: 'WGS84 longitude. Required together with latitude.' })
+  @ValidateIf((o: CreateEntityDto) => o.latitude !== undefined || o.longitude !== undefined)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 }

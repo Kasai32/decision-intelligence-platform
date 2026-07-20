@@ -34,3 +34,4 @@ An ADR captures a single significant, hard-to-reverse architectural decision: th
 | [0019](0019-confidence-score-explainability.md)           | Confidence score explainability: "show your work" in the API and UI                    | Accepted                       |
 | [0020](0020-live-progress-streaming-draft-and-polling.md) | Live progress: streaming AI drafts (SSE) and background incident refresh               | Accepted                       |
 | [0021](0021-entity-relationship-graph-and-audit-log.md)   | Entity-relationship intelligence graph + analyst-activity audit log                    | Accepted                       |
+| [0022](0022-geospatial-entity-search.md)                  | Geospatial entity search — mapping where things happened                               | Accepted                       |

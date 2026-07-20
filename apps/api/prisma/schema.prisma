@@ -610,9 +610,18 @@ model Entity {
   /// Known alternate names/spellings — raw material for merge suggestions
   /// below, never auto-applied.
   aliases    String[]
-  /// Type-specific fields (DOB, registration number, coordinates...).
-  /// Deliberately flexible rather than a rigid per-type schema this early.
+  /// Type-specific fields (DOB, registration number...). Deliberately
+  /// flexible rather than a rigid per-type schema this early. Coordinates
+  /// are real columns below, not buried in here — geospatial search
+  /// (ADR-0022) needs to filter/sort on them.
   attributes Json?
+
+  /// Real, queryable columns (not PostGIS — plain WGS84 floats, distance
+  /// computed in application code via the Haversine formula; see
+  /// ADR-0022 for why that's the right scope for this stage). Either both
+  /// are set or neither — enforced in CreateEntityDto, not the DB.
+  latitude  Float?
+  longitude Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -758,6 +767,7 @@ enum AuditAction {
   VIEW_ENTITY
   VIEW_RELATIONSHIP
   VIEW_GRAPH
+  VIEW_MAP
   CREATE_ENTITY
   CREATE_RELATIONSHIP
   CONFIRM_RELATIONSHIP

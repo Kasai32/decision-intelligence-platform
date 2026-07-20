@@ -152,4 +152,81 @@ describe('EntitiesService', () => {
       });
     });
   });
+
+  describe('searchNearby (see ADR-0022)', () => {
+    it('filters by real distance, excluding entities outside the radius, and logs a SEARCH entry', async () => {
+      // Washington, D.C. and New York are ~330km apart; Los Angeles is ~3900km from D.C.
+      prisma.entity.findMany.mockResolvedValue([
+        { id: 'nyc', name: 'New York Office', latitude: 40.7128, longitude: -74.006 },
+        { id: 'la', name: 'LA Office', latitude: 34.0522, longitude: -118.2437 },
+      ]);
+
+      const results = await service.searchNearby('t1', 'u1', {
+        latitude: 38.9072,
+        longitude: -77.0369,
+        radiusKm: 500,
+        reason: 'mapping known field offices',
+      });
+
+      expect(results.map((r) => r.id)).toEqual(['nyc']);
+      expect(results[0].distanceKm).toBeGreaterThan(300);
+      expect(results[0].distanceKm).toBeLessThan(360);
+      expect(prisma.entity.findMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: 't1',
+          type: undefined,
+          latitude: { not: null },
+          longitude: { not: null },
+        },
+      });
+      expect(auditLog.record).toHaveBeenCalledWith('t1', 'u1', {
+        action: AuditAction.SEARCH,
+        reason: 'mapping known field offices',
+        metadata: {
+          latitude: 38.9072,
+          longitude: -77.0369,
+          radiusKm: 500,
+          type: null,
+          resultCount: 1,
+        },
+      });
+    });
+
+    it('sorts results nearest-first', async () => {
+      prisma.entity.findMany.mockResolvedValue([
+        { id: 'far', latitude: 40.7128, longitude: -74.006 }, // ~330km from center
+        { id: 'near', latitude: 38.9, longitude: -77.04 }, // ~1km from center
+      ]);
+
+      const results = await service.searchNearby('t1', 'u1', {
+        latitude: 38.9072,
+        longitude: -77.0369,
+        radiusKm: 1000,
+        reason: 'sorting check',
+      });
+
+      expect(results.map((r) => r.id)).toEqual(['near', 'far']);
+    });
+  });
+
+  describe('getMap (see ADR-0022)', () => {
+    it('returns every located entity and logs VIEW_MAP', async () => {
+      prisma.entity.findMany.mockResolvedValue([
+        { id: 'nyc', latitude: 40.7128, longitude: -74.006 },
+      ]);
+
+      const results = await service.getMap('t1', 'u1', 'building an incident map');
+
+      expect(results).toHaveLength(1);
+      expect(prisma.entity.findMany).toHaveBeenCalledWith({
+        where: { tenantId: 't1', latitude: { not: null }, longitude: { not: null } },
+        orderBy: { name: 'asc' },
+      });
+      expect(auditLog.record).toHaveBeenCalledWith('t1', 'u1', {
+        action: AuditAction.VIEW_MAP,
+        reason: 'building an incident map',
+        metadata: { resultCount: 1 },
+      });
+    });
+  });
 });

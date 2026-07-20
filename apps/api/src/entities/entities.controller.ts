@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../auth/types';
 import { CreateEntityDto } from './dto/create-entity.dto';
 import { SearchEntitiesDto } from './dto/search-entities.dto';
+import { SearchNearbyDto } from './dto/search-nearby.dto';
 import { ViewReasonDto } from './dto/view-reason.dto';
 import { EntitiesService } from './entities.service';
 
@@ -23,6 +24,19 @@ export class EntitiesController {
   @Get()
   search(@CurrentUser() user: AuthenticatedUser, @Query() dto: SearchEntitiesDto) {
     return this.entities.search(user.tenantId, user.userId, dto);
+  }
+
+  // Static path segments (nearby/map) must be registered before ':id' —
+  // Express matches route registration order, and ':id' would otherwise
+  // greedily capture "nearby"/"map" as a literal id value.
+  @Get('nearby')
+  searchNearby(@CurrentUser() user: AuthenticatedUser, @Query() dto: SearchNearbyDto) {
+    return this.entities.searchNearby(user.tenantId, user.userId, dto);
+  }
+
+  @Get('map')
+  getMap(@CurrentUser() user: AuthenticatedUser, @Query() query: ViewReasonDto) {
+    return this.entities.getMap(user.tenantId, user.userId, query.reason);
   }
 
   @Get(':id')

@@ -4,11 +4,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { CreateEntityDto } from './dto/create-entity.dto';
 import { SearchEntitiesDto } from './dto/search-entities.dto';
+import { SearchNearbyDto } from './dto/search-nearby.dto';
+import { haversineDistanceKm } from './geospatial';
 
 export interface EntityGraph {
   entity: Entity;
   relationships: (Relationship & { fromEntity: Entity; toEntity: Entity })[];
 }
+
+export type LocatedEntity = Entity & { latitude: number; longitude: number };
+export type NearbyEntity = LocatedEntity & { distanceKm: number };
 
 /**
  * The intelligence graph's nodes (see ADR-0021). Every entity must cite
@@ -40,6 +45,8 @@ export class EntitiesService {
         name: dto.name,
         aliases: dto.aliases ?? [],
         attributes: dto.attributes as Prisma.InputJsonValue,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
         evidenceLinks: {
           create: {
             tenantId,
@@ -119,6 +126,71 @@ export class EntitiesService {
     });
 
     return { entity, relationships };
+  }
+
+  /**
+   * Geospatial search (see ADR-0022) — "mapping where things happened".
+   * Filters/sorts by real distance from a point, computed in application
+   * code (Haversine), not a PostGIS query — see geospatial.ts for why
+   * that's the right scope at this stage. `reason` is required, same
+   * purpose-limitation rule as `search()`.
+   */
+  async searchNearby(
+    tenantId: string,
+    actorUserId: string,
+    dto: SearchNearbyDto,
+  ): Promise<NearbyEntity[]> {
+    const candidates = await this.prisma.entity.findMany({
+      where: {
+        tenantId,
+        type: dto.type,
+        latitude: { not: null },
+        longitude: { not: null },
+      },
+    });
+
+    const results = (candidates as LocatedEntity[])
+      .map((entity) => ({
+        ...entity,
+        distanceKm: haversineDistanceKm(
+          dto.latitude,
+          dto.longitude,
+          entity.latitude,
+          entity.longitude,
+        ),
+      }))
+      .filter((entity) => entity.distanceKm <= dto.radiusKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+
+    await this.auditLog.record(tenantId, actorUserId, {
+      action: AuditAction.SEARCH,
+      reason: dto.reason,
+      metadata: {
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        radiusKm: dto.radiusKm,
+        type: dto.type ?? null,
+        resultCount: results.length,
+      },
+    });
+
+    return results;
+  }
+
+  /** Every entity with coordinates, for rendering on a map (see ADR-0022) — no radius filter. */
+  async getMap(tenantId: string, actorUserId: string, reason: string): Promise<LocatedEntity[]> {
+    const entities = await this.prisma.entity.findMany({
+      where: { tenantId, latitude: { not: null }, longitude: { not: null } },
+      orderBy: { name: 'asc' },
+    });
+
+    await this.auditLog.record(tenantId, actorUserId, {
+      action: AuditAction.VIEW_MAP,
+      reason,
+      metadata: { resultCount: entities.length },
+    });
+
+    return entities as LocatedEntity[];
   }
 
   private async getEntityOrThrow(tenantId: string, id: string): Promise<Entity> {
