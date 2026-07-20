@@ -131,7 +131,9 @@ describe('DecisionOutcomesService', () => {
       await service.record('t1', 'd1', 'u1', { outcomeQuality: DecisionOutcomeQuality.BAD });
 
       expect(prisma.decisionOutcome.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ intelligenceAnalysisId: undefined }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ intelligenceAnalysisId: undefined }),
+        }),
       );
     });
   });
@@ -150,8 +152,14 @@ describe('DecisionOutcomesService', () => {
 
     it('returns the recorded outcome', async () => {
       prisma.decision.findFirst.mockResolvedValue({ id: 'd1' });
-      prisma.decisionOutcome.findUnique.mockResolvedValue({ id: 'outcome-1', outcomeQuality: 'GOOD' });
-      await expect(service.findOne('t1', 'd1')).resolves.toEqual({ id: 'outcome-1', outcomeQuality: 'GOOD' });
+      prisma.decisionOutcome.findUnique.mockResolvedValue({
+        id: 'outcome-1',
+        outcomeQuality: 'GOOD',
+      });
+      await expect(service.findOne('t1', 'd1')).resolves.toEqual({
+        id: 'outcome-1',
+        outcomeQuality: 'GOOD',
+      });
     });
   });
 });

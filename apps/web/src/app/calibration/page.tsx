@@ -34,7 +34,9 @@ export default function CalibrationPage() {
     apiClient
       .get<CalibrationReport>('/decision-intelligence/calibration-report')
       .then(setReport)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load calibration report'));
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : 'Failed to load calibration report'),
+      );
   }, []);
 
   if (!getAccessToken()) {
@@ -45,7 +47,9 @@ export default function CalibrationPage() {
             <CardTitle>Calibration</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">You need to sign in to view the calibration report.</p>
+            <p className="text-sm text-muted-foreground">
+              You need to sign in to view the calibration report.
+            </p>
             <Button asChild>
               <Link href="/login">Sign in</Link>
             </Button>
@@ -71,10 +75,10 @@ export default function CalibrationPage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Compares each Decision Intelligence confidence dimension against real, human-recorded decision outcomes
-        (record one from a closed incident&apos;s Reports tab). This is a real, computed statistic — not a trained
-        model — and is shown as &quot;not enough data yet&quot; rather than a falsely precise number when the
-        sample is too small.
+        Compares each Decision Intelligence confidence dimension against real, human-recorded
+        decision outcomes (record one from a closed incident&apos;s Reports tab). This is a real,
+        computed statistic — not a trained model — and is shown as &quot;not enough data yet&quot;
+        rather than a falsely precise number when the sample is too small.
       </p>
 
       {error && (
@@ -89,7 +93,9 @@ export default function CalibrationPage() {
         <div className="flex flex-col gap-4">
           <Card>
             <CardContent className="flex items-center justify-between pt-6 text-sm">
-              <span className="text-muted-foreground">Total labeled outcomes (GOOD/BAD, with an analysis)</span>
+              <span className="text-muted-foreground">
+                Total labeled outcomes (GOOD/BAD, with an analysis)
+              </span>
               <span className="font-medium text-foreground">{report.totalLabeledOutcomes}</span>
             </CardContent>
           </Card>
@@ -114,7 +120,9 @@ export default function CalibrationPage() {
                     value={dimension.meanWhenGood}
                   />
                 ) : (
-                  <p className="text-xs text-muted-foreground">No GOOD-outcome samples recorded yet.</p>
+                  <p className="text-xs text-muted-foreground">
+                    No GOOD-outcome samples recorded yet.
+                  </p>
                 )}
                 {dimension.meanWhenBad !== null ? (
                   <ConfidenceMeter
@@ -122,13 +130,15 @@ export default function CalibrationPage() {
                     value={dimension.meanWhenBad}
                   />
                 ) : (
-                  <p className="text-xs text-muted-foreground">No BAD-outcome samples recorded yet.</p>
+                  <p className="text-xs text-muted-foreground">
+                    No BAD-outcome samples recorded yet.
+                  </p>
                 )}
                 {dimension.sufficientData && dimension.meanDifference !== null && (
                   <p className="text-xs text-muted-foreground">
                     Difference: {dimension.meanDifference > 0 ? '+' : ''}
-                    {dimension.meanDifference.toFixed(1)} — positive means higher scores here are associated with
-                    GOOD outcomes so far.
+                    {dimension.meanDifference.toFixed(1)} — positive means higher scores here are
+                    associated with GOOD outcomes so far.
                   </p>
                 )}
               </CardContent>

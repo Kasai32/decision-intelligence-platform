@@ -70,7 +70,9 @@ export function IntelligenceAnalysisForm({ incidentId, onCreated }: Intelligence
   }
 
   function updateAlternative(index: number, patch: Partial<DecisionOption>) {
-    setAlternatives((current) => current.map((option, i) => (i === index ? { ...option, ...patch } : option)));
+    setAlternatives((current) =>
+      current.map((option, i) => (i === index ? { ...option, ...patch } : option)),
+    );
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -97,7 +99,10 @@ export function IntelligenceAnalysisForm({ incidentId, onCreated }: Intelligence
 
     setSubmitting(true);
     try {
-      const analysis = await apiClient.post<IntelligenceAnalysis>(`/incidents/${incidentId}/analyze`, body);
+      const analysis = await apiClient.post<IntelligenceAnalysis>(
+        `/incidents/${incidentId}/analyze`,
+        body,
+      );
       onCreated(analysis);
       setSituationSummary('');
       setImpactDescription('');
@@ -183,7 +188,10 @@ export function IntelligenceAnalysisForm({ incidentId, onCreated }: Intelligence
               </Button>
             </div>
             {risks.map((risk, index) => (
-              <div key={index} className="grid gap-2 rounded-md border border-border p-3 sm:grid-cols-[1fr_auto_auto_auto]">
+              <div
+                key={index}
+                className="grid gap-2 rounded-md border border-border p-3 sm:grid-cols-[1fr_auto_auto_auto]"
+              >
                 <Input
                   aria-label="Risk description"
                   placeholder="Risk description"
@@ -248,7 +256,9 @@ export function IntelligenceAnalysisForm({ incidentId, onCreated }: Intelligence
               placeholder="Description"
               required
               value={recommended.description}
-              onChange={(e) => setRecommended((current) => ({ ...current, description: e.target.value }))}
+              onChange={(e) =>
+                setRecommended((current) => ({ ...current, description: e.target.value }))
+              }
             />
           </div>
 
@@ -266,7 +276,10 @@ export function IntelligenceAnalysisForm({ incidentId, onCreated }: Intelligence
               </Button>
             </div>
             {alternatives.map((option, index) => (
-              <div key={index} className="grid gap-2 rounded-md border border-border p-3 sm:grid-cols-[1fr_1fr_auto]">
+              <div
+                key={index}
+                className="grid gap-2 rounded-md border border-border p-3 sm:grid-cols-[1fr_1fr_auto]"
+              >
                 <Input
                   aria-label="Alternative label"
                   placeholder="Label"
@@ -284,7 +297,9 @@ export function IntelligenceAnalysisForm({ incidentId, onCreated }: Intelligence
                   variant="ghost"
                   size="icon"
                   aria-label="Remove alternative"
-                  onClick={() => setAlternatives((current) => current.filter((_, i) => i !== index))}
+                  onClick={() =>
+                    setAlternatives((current) => current.filter((_, i) => i !== index))
+                  }
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

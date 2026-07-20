@@ -1,6 +1,11 @@
 'use client';
 
-import type { CommandCenterSummary, Incident, IntelligenceAnalysis, TimelineEvent } from '@dip/shared';
+import type {
+  CommandCenterSummary,
+  Incident,
+  IntelligenceAnalysis,
+  TimelineEvent,
+} from '@dip/shared';
 import { FileText, LogOut, Radar, ScrollText, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -77,7 +82,9 @@ export default function CommandCenterPage() {
       .get<IntelligenceAnalysis[]>(`/incidents/${selectedIncidentId}/analyses`)
       .then(setAnalyses)
       .catch((err) => {
-        setErrorMessage(err instanceof ApiError ? err.message : 'Failed to load intelligence analyses');
+        setErrorMessage(
+          err instanceof ApiError ? err.message : 'Failed to load intelligence analyses',
+        );
       });
   }, [selectedIncidentId]);
 
@@ -171,7 +178,10 @@ export default function CommandCenterPage() {
         </main>
       ) : (
         <div className="flex flex-1">
-          <nav aria-label="Incidents" className="w-80 shrink-0 overflow-y-auto border-r border-border p-3">
+          <nav
+            aria-label="Incidents"
+            className="w-80 shrink-0 overflow-y-auto border-r border-border p-3"
+          >
             <ul className="flex flex-col gap-2">
               {incidents.map((incident) => (
                 <li key={incident.id}>

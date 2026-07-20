@@ -45,7 +45,10 @@ export function IntelligenceAnalysisPanel({ analyses }: IntelligenceAnalysisPane
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <ConfidenceMeter label="Evidence completeness" value={analysis.evidenceCompleteness} />
+              <ConfidenceMeter
+                label="Evidence completeness"
+                value={analysis.evidenceCompleteness}
+              />
               <ConfidenceMeter label="Source reliability" value={analysis.sourceReliability} />
               <ConfidenceMeter label="Data freshness" value={analysis.dataFreshness} />
               <ConfidenceMeter label="AI certainty" value={analysis.aiCertainty} />
@@ -98,7 +101,10 @@ export function IntelligenceAnalysisPanel({ analyses }: IntelligenceAnalysisPane
                 <p className="text-xs font-medium text-muted-foreground">Critical risks</p>
                 <ul className="mt-1 flex flex-col gap-1.5">
                   {analysis.criticalRisks.map((risk) => (
-                    <li key={risk.description} className="flex items-center gap-2 text-sm text-foreground">
+                    <li
+                      key={risk.description}
+                      className="flex items-center gap-2 text-sm text-foreground"
+                    >
                       <Badge variant={RISK_VARIANT[risk.likelihood]}>L:{risk.likelihood}</Badge>
                       <Badge variant={RISK_VARIANT[risk.impact]}>I:{risk.impact}</Badge>
                       {risk.description}
@@ -123,8 +129,12 @@ export function IntelligenceAnalysisPanel({ analyses }: IntelligenceAnalysisPane
 
             <div>
               <p className="text-xs font-medium text-muted-foreground">Recommended decision</p>
-              <p className="text-sm font-medium text-foreground">{analysis.recommendedDecision.label}</p>
-              <p className="text-sm text-muted-foreground">{analysis.recommendedDecision.description}</p>
+              <p className="text-sm font-medium text-foreground">
+                {analysis.recommendedDecision.label}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {analysis.recommendedDecision.description}
+              </p>
             </div>
 
             {analysis.alternativeDecisions.length > 0 && (

@@ -29,7 +29,9 @@ export function ExecutiveBriefsPanel({ incidentId }: ExecutiveBriefsPanelProps) 
     apiClient
       .get<ExecutiveBrief[]>(`/incidents/${incidentId}/executive-briefs`)
       .then(setBriefs)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load executive briefs'));
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : 'Failed to load executive briefs'),
+      );
   }, [incidentId]);
 
   async function handleGenerate(event: FormEvent) {
@@ -37,9 +39,12 @@ export function ExecutiveBriefsPanel({ incidentId }: ExecutiveBriefsPanelProps) 
     setError(null);
     setGenerating(true);
     try {
-      const brief = await apiClient.post<ExecutiveBrief>(`/incidents/${incidentId}/executive-brief`, {
-        additionalNotes: notes.trim() || undefined,
-      });
+      const brief = await apiClient.post<ExecutiveBrief>(
+        `/incidents/${incidentId}/executive-brief`,
+        {
+          additionalNotes: notes.trim() || undefined,
+        },
+      );
       setBriefs((current) => [brief, ...(current ?? [])]);
       setNotes('');
     } catch (err) {

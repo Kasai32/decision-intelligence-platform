@@ -15,7 +15,10 @@ export const SLA_MINUTES_BY_SEVERITY: Record<IncidentSeverity, number> = {
   LOW: 24 * 60,
 };
 
-export function computeDecisionDeadline(decisionCreatedAt: string, severity: IncidentSeverity): Date {
+export function computeDecisionDeadline(
+  decisionCreatedAt: string,
+  severity: IncidentSeverity,
+): Date {
   const createdAtMs = new Date(decisionCreatedAt).getTime();
   return new Date(createdAtMs + SLA_MINUTES_BY_SEVERITY[severity] * 60_000);
 }

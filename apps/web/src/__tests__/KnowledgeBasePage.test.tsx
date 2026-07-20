@@ -61,7 +61,9 @@ describe('KnowledgeBasePage (ADR-0011 — Phase 5 Knowledge Base search)', () =>
     fireEvent.click(screen.getByRole('button', { name: /^search$/i }));
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/knowledge-base/search?query=payments&tags=deploy');
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/knowledge-base/search?query=payments&tags=deploy',
+      );
     });
     expect(await screen.findByText(lesson.title)).toBeInTheDocument();
   });

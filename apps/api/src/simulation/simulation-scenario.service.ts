@@ -92,7 +92,8 @@ export class SimulationScenarioService {
     await Promise.all([
       this.decisions.open(tenantId, actorUserId, {
         incidentId: incident.id,
-        question: 'Isolate the affected network segment from the internet to contain the ransomware spread?',
+        question:
+          'Isolate the affected network segment from the internet to contain the ransomware spread?',
       }),
       this.decisions.open(tenantId, actorUserId, {
         incidentId: incident.id,
@@ -188,7 +189,7 @@ export class SimulationScenarioService {
       situationSummary:
         `${SIMULATION_PREFIX} Primary AWS region reporting EC2/RDS degradation; monitoring ` +
         'telemetry that would normally corroborate scope and blast radius is currently unavailable ' +
-        "(Datadog integration circuit breaker OPEN) — this analysis is based on partial evidence.",
+        '(Datadog integration circuit breaker OPEN) — this analysis is based on partial evidence.',
       businessImpact: {
         level: IncidentSeverity.HIGH,
         description: `${SIMULATION_PREFIX} Checkout service degraded for an unconfirmed share of traffic.`,

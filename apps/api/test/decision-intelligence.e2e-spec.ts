@@ -19,12 +19,14 @@ describe('Decision Intelligence Engine (e2e)', () => {
     app = await bootstrapTestApp();
 
     const id = randomUUID();
-    const registered = await request(app.getHttpServer()).post('/api/v1/auth/register').send({
-      email: `e2e-di-${id}@example.com`,
-      password: 'correct-horse-battery-staple',
-      name: 'E2E DI User',
-      tenantName: `E2E DI Tenant ${id}`,
-    });
+    const registered = await request(app.getHttpServer())
+      .post('/api/v1/auth/register')
+      .send({
+        email: `e2e-di-${id}@example.com`,
+        password: 'correct-horse-battery-staple',
+        name: 'E2E DI User',
+        tenantName: `E2E DI Tenant ${id}`,
+      });
     accessToken = registered.body.accessToken;
   });
 
@@ -37,28 +39,22 @@ describe('Decision Intelligence Engine (e2e)', () => {
   }
 
   it('computes confidence dimensions from real evidence and returns the same flat shape from both analyze() and list()', async () => {
-    const incident = await request(app.getHttpServer())
-      .post('/api/v1/incidents')
-      .set(auth())
-      .send({
-        title: 'Cloud provider outage, partial evidence',
-        description: 'Payments API returning 500s',
-        severity: 'HIGH',
-        type: 'CLOUD_OUTAGE',
-      });
+    const incident = await request(app.getHttpServer()).post('/api/v1/incidents').set(auth()).send({
+      title: 'Cloud provider outage, partial evidence',
+      description: 'Payments API returning 500s',
+      severity: 'HIGH',
+      type: 'CLOUD_OUTAGE',
+    });
     expect(incident.status).toBe(201);
     const incidentId = incident.body.id as string;
 
-    const evidence = await request(app.getHttpServer())
-      .post('/api/v1/evidence')
-      .set(auth())
-      .send({
-        incidentId,
-        type: 'METRIC',
-        sourceCategory: 'MONITORING',
-        source: 'Datadog',
-        summary: 'Error rate spiked to 42% at 11:40',
-      });
+    const evidence = await request(app.getHttpServer()).post('/api/v1/evidence').set(auth()).send({
+      incidentId,
+      type: 'METRIC',
+      sourceCategory: 'MONITORING',
+      source: 'Datadog',
+      summary: 'Error rate spiked to 42% at 11:40',
+    });
     expect(evidence.status).toBe(201);
 
     const analyzeBody = {
@@ -68,10 +64,14 @@ describe('Decision Intelligence Engine (e2e)', () => {
         description: 'Checkout failures for a subset of customers.',
         affectedSystems: ['payments-api'],
       },
-      criticalRisks: [{ description: 'Revenue loss during peak hours', likelihood: 'HIGH', impact: 'HIGH' }],
+      criticalRisks: [
+        { description: 'Revenue loss during peak hours', likelihood: 'HIGH', impact: 'HIGH' },
+      ],
       conflictingInformation: [],
       recommendedDecision: { label: 'Roll back', description: 'Roll back the 11:35 deploy.' },
-      alternativeDecisions: [{ label: 'Hotfix forward', description: 'Ship a targeted patch instead.' }],
+      alternativeDecisions: [
+        { label: 'Hotfix forward', description: 'Ship a targeted patch instead.' },
+      ],
       expectedConsequences: 'Brief additional downtime during rollback, then recovery.',
       immediateNextActions: ['Page on-call', 'Notify status page'],
       executiveSummary: 'Recommend rollback; evidence supports a bad deploy as root cause.',

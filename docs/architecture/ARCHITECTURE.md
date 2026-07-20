@@ -111,22 +111,22 @@ infra/
 
 ## 4. Technology stack
 
-| Concern           | Choice                                       | Why (full rationale in DECISION_LOG.md / ADRs)                          |
-| ----------------- | -------------------------------------------- | ----------------------------------------------------------------------- |
-| Language          | TypeScript everywhere                        | One language across api/web/shared, shared types with no codegen        |
-| Package manager   | npm workspaces                               | Zero extra tooling given the target machine's baseline                  |
-| Backend           | NestJS                                       | Modular DI maps to RBAC guards, tenant scoping, per-integration modules |
-| Frontend          | Next.js (App Router)                         | Multi-view dashboard/timeline UI, SSR for report views                  |
-| Frontend styling  | Tailwind CSS v4 + CVA/Radix (ADR-0014)       | shadcn-style primitives, dark command-center theme, no runtime CSS cost |
-| Database          | PostgreSQL                                   | Relational, strong multi-tenant + audit/evidence data support           |
-| ORM               | Prisma (6.x — see ADR-0003)                  | Type-safe client + file-based migrations                                |
-| Multi-tenancy     | Shared schema, `tenantId` scoping (ADR-0004) + Postgres RLS (ADR-0015) | App-code scoping plus database-enforced defense-in-depth  |
-| Auth              | Self-hosted JWT (ADR-0005)                   | No external account/vendor available to an autonomous build             |
-| Testing           | Jest (unit) + Jest/supertest/testcontainers (e2e, `apps/api/test/`) | One runner; e2e hits a real, disposable Postgres — see DECISION_LOG.md |
-| Lint/format       | ESLint (flat config) + Prettier              | Current ESLint standard, single shared config                           |
-| CI/CD             | GitHub Actions                               | No-cost, zero-setup once pushed to GitHub                               |
-| Security scanning | CodeQL, npm audit, Dependabot, gitleaks      | Baseline SAST + dependency CVEs + secret scanning, all free             |
-| Containers        | Docker (multi-stage) + docker-compose        | Reproducible local dev, deployable images                               |
+| Concern           | Choice                                                                 | Why (full rationale in DECISION_LOG.md / ADRs)                          |
+| ----------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Language          | TypeScript everywhere                                                  | One language across api/web/shared, shared types with no codegen        |
+| Package manager   | npm workspaces                                                         | Zero extra tooling given the target machine's baseline                  |
+| Backend           | NestJS                                                                 | Modular DI maps to RBAC guards, tenant scoping, per-integration modules |
+| Frontend          | Next.js (App Router)                                                   | Multi-view dashboard/timeline UI, SSR for report views                  |
+| Frontend styling  | Tailwind CSS v4 + CVA/Radix (ADR-0014)                                 | shadcn-style primitives, dark command-center theme, no runtime CSS cost |
+| Database          | PostgreSQL                                                             | Relational, strong multi-tenant + audit/evidence data support           |
+| ORM               | Prisma (6.x — see ADR-0003)                                            | Type-safe client + file-based migrations                                |
+| Multi-tenancy     | Shared schema, `tenantId` scoping (ADR-0004) + Postgres RLS (ADR-0015) | App-code scoping plus database-enforced defense-in-depth                |
+| Auth              | Self-hosted JWT (ADR-0005)                                             | No external account/vendor available to an autonomous build             |
+| Testing           | Jest (unit) + Jest/supertest/testcontainers (e2e, `apps/api/test/`)    | One runner; e2e hits a real, disposable Postgres — see DECISION_LOG.md  |
+| Lint/format       | ESLint (flat config) + Prettier                                        | Current ESLint standard, single shared config                           |
+| CI/CD             | GitHub Actions                                                         | No-cost, zero-setup once pushed to GitHub                               |
+| Security scanning | CodeQL, npm audit, Dependabot, gitleaks                                | Baseline SAST + dependency CVEs + secret scanning, all free             |
+| Containers        | Docker (multi-stage) + docker-compose                                  | Reproducible local dev, deployable images                               |
 
 ## 5. Cross-cutting concerns
 

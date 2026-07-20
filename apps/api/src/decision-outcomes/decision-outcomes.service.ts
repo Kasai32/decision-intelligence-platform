@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   Decision,
   DecisionOutcome,
@@ -52,7 +57,11 @@ export class DecisionOutcomesService {
     // whatever's most recent now.
     const informingAnalysis = decision.decidedAt
       ? await this.prisma.intelligenceAnalysis.findFirst({
-          where: { tenantId, incidentId: decision.incidentId, createdAt: { lte: decision.decidedAt } },
+          where: {
+            tenantId,
+            incidentId: decision.incidentId,
+            createdAt: { lte: decision.decidedAt },
+          },
           orderBy: { createdAt: 'desc' },
         })
       : null;

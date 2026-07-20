@@ -46,7 +46,11 @@ describe('DecisionReportsPanel (ADR-0011 — per-decision snapshots)', () => {
 
   it('lists a generate button per decision and loads its existing reports', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue([]);
-    render(<DecisionReportsPanel decisions={[{ id: 'decision-1', question: 'Roll back the deploy?' }]} />);
+    render(
+      <DecisionReportsPanel
+        decisions={[{ id: 'decision-1', question: 'Roll back the deploy?' }]}
+      />,
+    );
 
     expect(screen.getByText('Roll back the deploy?')).toBeInTheDocument();
     await waitFor(() => {
@@ -54,11 +58,15 @@ describe('DecisionReportsPanel (ADR-0011 — per-decision snapshots)', () => {
     });
   });
 
-  it('generates a report for a decision and shows it in that decision\'s list', async () => {
+  it("generates a report for a decision and shows it in that decision's list", async () => {
     (apiClient.get as jest.Mock).mockResolvedValue([]);
     (apiClient.post as jest.Mock).mockResolvedValue(report);
 
-    render(<DecisionReportsPanel decisions={[{ id: 'decision-1', question: 'Roll back the deploy?' }]} />);
+    render(
+      <DecisionReportsPanel
+        decisions={[{ id: 'decision-1', question: 'Roll back the deploy?' }]}
+      />,
+    );
     await waitFor(() => expect(apiClient.get).toHaveBeenCalled());
 
     fireEvent.click(screen.getByRole('button', { name: /generate report/i }));

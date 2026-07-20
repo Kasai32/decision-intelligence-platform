@@ -95,7 +95,9 @@ describe('IntegrationsPage (ADR-0012 — Phase 6 per-tenant configuration)', () 
     await screen.findByText('Slack');
 
     fireEvent.click(screen.getByRole('button', { name: /^configure$/i }));
-    fireEvent.change(screen.getByLabelText(/slack credentials json/i), { target: { value: 'not json' } });
+    fireEvent.change(screen.getByLabelText(/slack credentials json/i), {
+      target: { value: 'not json' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /save credentials/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/valid json/i);

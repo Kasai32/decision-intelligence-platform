@@ -72,7 +72,9 @@ export class WebhookSignatureGuard implements CanActivate {
   private async getWebhookSecret(tenantId: string, providerType: string): Promise<string | null> {
     const config = await runInTenantContext(this.prisma, tenantId, () =>
       this.prisma.integrationConfig.findUnique({
-        where: { tenantId_providerType: { tenantId, providerType: providerType as IntegrationKey } },
+        where: {
+          tenantId_providerType: { tenantId, providerType: providerType as IntegrationKey },
+        },
       }),
     );
     if (!config || config.status !== IntegrationConfigStatus.ACTIVE) {

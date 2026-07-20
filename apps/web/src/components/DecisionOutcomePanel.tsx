@@ -13,7 +13,10 @@ import { apiClient, ApiError } from '../lib/api-client';
 
 const QUALITY_OPTIONS: DecisionOutcomeQuality[] = ['GOOD', 'BAD', 'MIXED', 'UNKNOWN'];
 
-const QUALITY_VARIANT: Record<DecisionOutcomeQuality, 'success' | 'destructive' | 'medium' | 'outline'> = {
+const QUALITY_VARIANT: Record<
+  DecisionOutcomeQuality,
+  'success' | 'destructive' | 'medium' | 'outline'
+> = {
   GOOD: 'success',
   BAD: 'destructive',
   MIXED: 'medium',
@@ -34,7 +37,9 @@ export interface DecisionOutcomePanelProps {
  * once the incident is CLOSED.
  */
 export function DecisionOutcomePanel({ decisions, incidentStatus }: DecisionOutcomePanelProps) {
-  const [outcomeByDecision, setOutcomeByDecision] = useState<Record<string, DecisionOutcome | null>>({});
+  const [outcomeByDecision, setOutcomeByDecision] = useState<
+    Record<string, DecisionOutcome | null>
+  >({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,7 +47,9 @@ export function DecisionOutcomePanel({ decisions, incidentStatus }: DecisionOutc
     decisions.forEach((decision) => {
       apiClient
         .get<DecisionOutcome>(`/decisions/${decision.id}/outcome`)
-        .then((outcome) => setOutcomeByDecision((current) => ({ ...current, [decision.id]: outcome })))
+        .then((outcome) =>
+          setOutcomeByDecision((current) => ({ ...current, [decision.id]: outcome })),
+        )
         .catch((err) => {
           if (err instanceof ApiError && err.statusCode === 404) {
             setOutcomeByDecision((current) => ({ ...current, [decision.id]: null }));
@@ -67,7 +74,9 @@ export function DecisionOutcomePanel({ decisions, incidentStatus }: DecisionOutc
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {decisions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No decisions opened for this incident yet.</p>
+          <p className="text-sm text-muted-foreground">
+            No decisions opened for this incident yet.
+          </p>
         ) : (
           decisions.map((decision) => (
             <div key={decision.id} className="rounded-md border border-border p-3">
@@ -81,7 +90,8 @@ export function DecisionOutcomePanel({ decisions, incidentStatus }: DecisionOutc
                   <RecordOutcomeForm decisionId={decision.id} onRecorded={handleRecorded} />
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Outcomes can only be recorded once this incident is CLOSED (current status: {incidentStatus}).
+                    Outcomes can only be recorded once this incident is CLOSED (current status:{' '}
+                    {incidentStatus}).
                   </p>
                 )}
               </div>

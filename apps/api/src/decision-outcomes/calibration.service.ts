@@ -11,7 +11,12 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 export const MIN_SAMPLE_SIZE = 5;
 
-const DIMENSIONS = ['evidenceCompleteness', 'sourceReliability', 'dataFreshness', 'aiCertainty'] as const;
+const DIMENSIONS = [
+  'evidenceCompleteness',
+  'sourceReliability',
+  'dataFreshness',
+  'aiCertainty',
+] as const;
 export type CalibrationDimension = (typeof DIMENSIONS)[number];
 
 export interface DimensionCalibration {

@@ -301,7 +301,8 @@ export interface DecisionOutcome {
   recordedAt: string;
 }
 
-export type CalibrationDimension = 'evidenceCompleteness' | 'sourceReliability' | 'dataFreshness' | 'aiCertainty';
+export type CalibrationDimension =
+  'evidenceCompleteness' | 'sourceReliability' | 'dataFreshness' | 'aiCertainty';
 
 /** One confidence dimension's real, computed relationship to human-attested outcomes — see ADR-0016. */
 export interface DimensionCalibration {

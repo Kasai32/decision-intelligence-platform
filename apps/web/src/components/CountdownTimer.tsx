@@ -16,8 +16,10 @@ export interface CountdownTimerProps {
 const STATE_CLASSES: Record<string, string> = {
   calm: 'border-countdown-calm/40 bg-countdown-calm/10 text-countdown-calm',
   warning: 'border-countdown-warning/40 bg-countdown-warning/10 text-countdown-warning',
-  danger: 'border-countdown-danger/50 bg-countdown-danger/10 text-countdown-danger animate-pulse-danger',
-  overdue: 'border-countdown-overdue/60 bg-countdown-overdue/20 text-countdown-overdue animate-pulse-danger',
+  danger:
+    'border-countdown-danger/50 bg-countdown-danger/10 text-countdown-danger animate-pulse-danger',
+  overdue:
+    'border-countdown-overdue/60 bg-countdown-overdue/20 text-countdown-overdue animate-pulse-danger',
 };
 
 /**

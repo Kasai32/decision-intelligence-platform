@@ -18,16 +18,18 @@ describe('Decision outcomes and calibration (e2e)', () => {
     app = await bootstrapTestApp();
 
     const id = randomUUID();
-    const registered = await request(app.getHttpServer()).post('/api/v1/auth/register').send({
-      email: `e2e-calibration-${id}@example.com`,
-      password: 'correct-horse-battery-staple',
-      name: 'E2E Calibration User',
-      tenantName: `E2E Calibration Tenant ${id}`,
-    });
+    const registered = await request(app.getHttpServer())
+      .post('/api/v1/auth/register')
+      .send({
+        email: `e2e-calibration-${id}@example.com`,
+        password: 'correct-horse-battery-staple',
+        name: 'E2E Calibration User',
+        tenantName: `E2E Calibration Tenant ${id}`,
+      });
     accessToken = registered.body.accessToken;
-    const payload = JSON.parse(
-      Buffer.from(accessToken.split('.')[1], 'base64url').toString(),
-    ) as { sub: string };
+    const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString()) as {
+      sub: string;
+    };
     userId = payload.sub;
   });
 
@@ -39,22 +41,36 @@ describe('Decision outcomes and calibration (e2e)', () => {
     return { Authorization: `Bearer ${accessToken}` };
   }
 
-  async function runDecisionToClosedOutcome(evidenceCompleteness: 'high' | 'low', outcomeQuality: 'GOOD' | 'BAD') {
+  async function runDecisionToClosedOutcome(
+    evidenceCompleteness: 'high' | 'low',
+    outcomeQuality: 'GOOD' | 'BAD',
+  ) {
     const incident = await request(app.getHttpServer())
       .post('/api/v1/incidents')
       .set(auth())
-      .send({ title: `Calibration probe (${outcomeQuality})`, description: 'e2e', severity: 'HIGH', type: 'CLOUD_OUTAGE' });
+      .send({
+        title: `Calibration probe (${outcomeQuality})`,
+        description: 'e2e',
+        severity: 'HIGH',
+        type: 'CLOUD_OUTAGE',
+      });
     const incidentId = incident.body.id as string;
 
     if (evidenceCompleteness === 'high') {
-      await request(app.getHttpServer())
-        .post('/api/v1/evidence')
-        .set(auth())
-        .send({ incidentId, type: 'METRIC', sourceCategory: 'MONITORING', source: 'Datadog', summary: 'CPU spike' });
-      await request(app.getHttpServer())
-        .post('/api/v1/evidence')
-        .set(auth())
-        .send({ incidentId, type: 'LOG', sourceCategory: 'CLOUD_PROVIDER', source: 'AWS', summary: 'Instance restart log' });
+      await request(app.getHttpServer()).post('/api/v1/evidence').set(auth()).send({
+        incidentId,
+        type: 'METRIC',
+        sourceCategory: 'MONITORING',
+        source: 'Datadog',
+        summary: 'CPU spike',
+      });
+      await request(app.getHttpServer()).post('/api/v1/evidence').set(auth()).send({
+        incidentId,
+        type: 'LOG',
+        sourceCategory: 'CLOUD_PROVIDER',
+        source: 'AWS',
+        summary: 'Instance restart log',
+      });
     }
 
     const analyzed = await request(app.getHttpServer())

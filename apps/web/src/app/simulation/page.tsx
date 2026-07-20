@@ -8,7 +8,14 @@ import { useState } from 'react';
 import { apiClient, ApiError } from '../../lib/api-client';
 import { getAccessToken } from '../../lib/auth-storage';
 import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '../../components/ui/card';
 
 interface SimulationTriggerResult {
   scenario: SimulationScenario;
@@ -35,7 +42,7 @@ const SCENARIOS: Array<{
     label: 'Scenario B — Cloud outage, partial evidence',
     description:
       'Creates a HIGH cloud-outage incident with only partial evidence attached and trips the ' +
-      "tenant's Datadog integration circuit breaker — exercises the \"not enough evidence\" state.",
+      'tenant\'s Datadog integration circuit breaker — exercises the "not enough evidence" state.',
     icon: ShieldOff,
   },
 ];
@@ -59,7 +66,9 @@ export default function SimulationPage() {
             <CardTitle>User validation test scenarios</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">You need to sign in as a tenant admin to trigger scenarios.</p>
+            <p className="text-sm text-muted-foreground">
+              You need to sign in as a tenant admin to trigger scenarios.
+            </p>
             <Button asChild>
               <Link href="/login">Sign in</Link>
             </Button>
@@ -91,8 +100,8 @@ export default function SimulationPage() {
       </div>
       <p className="text-sm text-muted-foreground">
         Each button below instantly creates a disposable, tenant-scoped test incident (titled with a{' '}
-        <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">[SIMULATION]</code> prefix) in the
-        Command Center. ADMIN role required.
+        <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">[SIMULATION]</code> prefix)
+        in the Command Center. ADMIN role required.
       </p>
 
       <ul aria-label="Simulation scenarios" className="grid gap-4 sm:grid-cols-2">

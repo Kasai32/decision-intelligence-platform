@@ -46,10 +46,17 @@ describe('IntelligenceAnalysisForm (ADR-0010 — human-supplied qualitative fiel
       tenantId: 't1',
       incidentId: 'incident-1',
       situationSummary: 'Payments API returning 500s.',
-      businessImpact: { level: 'MEDIUM', description: 'Checkout degraded for all customers.', affectedSystems: [] },
+      businessImpact: {
+        level: 'MEDIUM',
+        description: 'Checkout degraded for all customers.',
+        affectedSystems: [],
+      },
       criticalRisks: [],
       conflictingInformation: [],
-      recommendedDecision: { label: 'Roll back deploy', description: 'Revert to previous stable release.' },
+      recommendedDecision: {
+        label: 'Roll back deploy',
+        description: 'Revert to previous stable release.',
+      },
       alternativeDecisions: [],
       expectedConsequences: 'Brief downtime, then recovery.',
       immediateNextActions: [],
@@ -97,7 +104,9 @@ describe('IntelligenceAnalysisForm (ADR-0010 — human-supplied qualitative fiel
   });
 
   it('shows the backend error message and does not call onCreated when submission fails', async () => {
-    (apiClient.post as jest.Mock).mockRejectedValue(new ApiError(400, 'situationSummary must not be empty'));
+    (apiClient.post as jest.Mock).mockRejectedValue(
+      new ApiError(400, 'situationSummary must not be empty'),
+    );
 
     const onCreated = jest.fn();
     render(<IntelligenceAnalysisForm incidentId="incident-1" onCreated={onCreated} />);

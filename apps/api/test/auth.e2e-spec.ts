@@ -40,17 +40,13 @@ describe('Auth (e2e)', () => {
   it('registers a real JWT-shaped token, rejects a duplicate email, and rejects/accepts login', async () => {
     const user = uniqueUser();
 
-    const registered = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send(user);
+    const registered = await request(app.getHttpServer()).post('/api/v1/auth/register').send(user);
     expect(registered.status).toBe(201);
     expect(typeof registered.body.accessToken).toBe('string');
     expect(registered.body.accessToken.split('.')).toHaveLength(3); // real JWT: header.payload.signature
     expect(typeof registered.body.refreshToken).toBe('string');
 
-    const duplicate = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send(user);
+    const duplicate = await request(app.getHttpServer()).post('/api/v1/auth/register').send(user);
     expect(duplicate.status).toBe(409);
 
     const wrongPassword = await request(app.getHttpServer())

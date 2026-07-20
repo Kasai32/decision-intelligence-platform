@@ -27,7 +27,12 @@ describe('CalibrationService — real statistics from human-attested outcomes, n
     prisma.decisionOutcome.findMany.mockResolvedValue([
       {
         outcomeQuality: 'GOOD',
-        intelligenceAnalysis: { evidenceCompleteness: 80, sourceReliability: 90, dataFreshness: 70, aiCertainty: 60 },
+        intelligenceAnalysis: {
+          evidenceCompleteness: 80,
+          sourceReliability: 90,
+          dataFreshness: 70,
+          aiCertainty: 60,
+        },
       },
     ]);
 
@@ -70,7 +75,15 @@ describe('CalibrationService — real statistics from human-attested outcomes, n
 
   it('ignores MIXED/UNKNOWN outcomes and outcomes with no linked analysis entirely (the query already filters them, this proves the aggregation does too)', async () => {
     prisma.decisionOutcome.findMany.mockResolvedValue([
-      { outcomeQuality: 'GOOD', intelligenceAnalysis: { evidenceCompleteness: 100, sourceReliability: 100, dataFreshness: 100, aiCertainty: 100 } },
+      {
+        outcomeQuality: 'GOOD',
+        intelligenceAnalysis: {
+          evidenceCompleteness: 100,
+          sourceReliability: 100,
+          dataFreshness: 100,
+          aiCertainty: 100,
+        },
+      },
       { outcomeQuality: 'GOOD', intelligenceAnalysis: null },
     ]);
 

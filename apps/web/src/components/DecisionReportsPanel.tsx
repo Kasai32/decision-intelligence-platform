@@ -32,8 +32,12 @@ export function DecisionReportsPanel({ decisions }: DecisionReportsPanelProps) {
     decisions.forEach((decision) => {
       apiClient
         .get<DecisionReport[]>(`/decisions/${decision.id}/reports`)
-        .then((reports) => setReportsByDecision((current) => ({ ...current, [decision.id]: reports })))
-        .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load decision reports'));
+        .then((reports) =>
+          setReportsByDecision((current) => ({ ...current, [decision.id]: reports })),
+        )
+        .catch((err) =>
+          setError(err instanceof ApiError ? err.message : 'Failed to load decision reports'),
+        );
     });
   }, [decisions.map((d) => d.id).join(',')]);
 
@@ -63,7 +67,9 @@ export function DecisionReportsPanel({ decisions }: DecisionReportsPanelProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {decisions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No decisions opened for this incident yet.</p>
+          <p className="text-sm text-muted-foreground">
+            No decisions opened for this incident yet.
+          </p>
         ) : (
           decisions.map((decision) => {
             const reports = reportsByDecision[decision.id] ?? [];
@@ -85,7 +91,8 @@ export function DecisionReportsPanel({ decisions }: DecisionReportsPanelProps) {
                   <ul className="mt-2 flex flex-col gap-1.5">
                     {reports.map((report) => (
                       <li key={report.id} className="text-xs text-muted-foreground">
-                        Report generated {new Date(report.generatedAt).toLocaleString()} — status {report.status}
+                        Report generated {new Date(report.generatedAt).toLocaleString()} — status{' '}
+                        {report.status}
                         {report.humanDecision ? `: "${report.humanDecision}"` : ''}
                       </li>
                     ))}

@@ -44,19 +44,26 @@ describe('Tenant isolation (e2e)', () => {
     const created = await request(app.getHttpServer())
       .post('/api/v1/incidents')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ title: 'Tenant A only incident', description: 'Should never be visible to tenant B' });
+      .send({
+        title: 'Tenant A only incident',
+        description: 'Should never be visible to tenant B',
+      });
     expect(created.status).toBe(201);
     const incidentId = created.body.id as string;
 
     const tenantAList = await request(app.getHttpServer())
       .get('/api/v1/incidents')
       .set('Authorization', `Bearer ${tokenA}`);
-    expect(tenantAList.body.some((incident: { id: string }) => incident.id === incidentId)).toBe(true);
+    expect(tenantAList.body.some((incident: { id: string }) => incident.id === incidentId)).toBe(
+      true,
+    );
 
     const tenantBList = await request(app.getHttpServer())
       .get('/api/v1/incidents')
       .set('Authorization', `Bearer ${tokenB}`);
-    expect(tenantBList.body.some((incident: { id: string }) => incident.id === incidentId)).toBe(false);
+    expect(tenantBList.body.some((incident: { id: string }) => incident.id === incidentId)).toBe(
+      false,
+    );
 
     const tenantBDetail = await request(app.getHttpServer())
       .get(`/api/v1/incidents/${incidentId}`)
@@ -93,14 +100,18 @@ describe('Tenant isolation (e2e)', () => {
     // Same unfiltered query, but with the correct tenant context set —
     // proves the policy is actually scoping by tenant, not just blocking
     // everything unconditionally.
-    const withCorrectTenantContext = await runInTenantContext(prisma, tenantId, () =>
-      prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "incidents" WHERE id = ${incidentId}`,
+    const withCorrectTenantContext = await runInTenantContext(
+      prisma,
+      tenantId,
+      () => prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "incidents" WHERE id = ${incidentId}`,
     );
     expect(withCorrectTenantContext).toHaveLength(1);
 
     // And with a fabricated, unrelated tenant context — still zero rows.
-    const withWrongTenantContext = await runInTenantContext(prisma, randomUUID(), () =>
-      prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "incidents" WHERE id = ${incidentId}`,
+    const withWrongTenantContext = await runInTenantContext(
+      prisma,
+      randomUUID(),
+      () => prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "incidents" WHERE id = ${incidentId}`,
     );
     expect(withWrongTenantContext).toHaveLength(0);
   });

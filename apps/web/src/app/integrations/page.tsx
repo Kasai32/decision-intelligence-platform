@@ -24,7 +24,9 @@ export default function IntegrationsPage() {
     apiClient
       .get<IntegrationStatusSummary[]>('/integrations')
       .then(setSummaries)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load integrations'));
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : 'Failed to load integrations'),
+      );
   }, []);
 
   if (!getAccessToken()) {
@@ -35,7 +37,9 @@ export default function IntegrationsPage() {
             <CardTitle>Integrations</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">You need to sign in to manage integrations.</p>
+            <p className="text-sm text-muted-foreground">
+              You need to sign in to manage integrations.
+            </p>
             <Button asChild>
               <Link href="/login">Sign in</Link>
             </Button>
@@ -47,7 +51,9 @@ export default function IntegrationsPage() {
 
   function updateSummary(updated: IntegrationStatusSummary) {
     setSummaries((current) =>
-      (current ?? []).map((summary) => (summary.providerType === updated.providerType ? updated : summary)),
+      (current ?? []).map((summary) =>
+        summary.providerType === updated.providerType ? updated : summary,
+      ),
     );
   }
 
@@ -55,7 +61,13 @@ export default function IntegrationsPage() {
     setSummaries((current) =>
       (current ?? []).map((summary) =>
         summary.providerType === providerType
-          ? { ...summary, configured: false, status: 'NOT_CONFIGURED', circuitState: 'CLOSED', updatedAt: null }
+          ? {
+              ...summary,
+              configured: false,
+              status: 'NOT_CONFIGURED',
+              circuitState: 'CLOSED',
+              updatedAt: null,
+            }
           : summary,
       ),
     );
@@ -77,9 +89,10 @@ export default function IntegrationsPage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Ten enterprise systems (ServiceNow, Jira, Slack, Teams, AWS, Azure, GCP, Splunk, Datadog, Microsoft
-        Sentinel), each independently circuit-breaker-protected. An unconfigured provider runs in a stub mode and
-        never blocks an incident/decision action. ADMIN role required to configure, change status, or remove.
+        Ten enterprise systems (ServiceNow, Jira, Slack, Teams, AWS, Azure, GCP, Splunk, Datadog,
+        Microsoft Sentinel), each independently circuit-breaker-protected. An unconfigured provider
+        runs in a stub mode and never blocks an incident/decision action. ADMIN role required to
+        configure, change status, or remove.
       </p>
 
       {error && (

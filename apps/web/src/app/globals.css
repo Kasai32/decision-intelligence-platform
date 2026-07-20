@@ -55,10 +55,8 @@
   --color-countdown-danger: #ef4444;
   --color-countdown-overdue: #dc2626;
 
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono:
-    ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
   --radius: 0.5rem;
 }

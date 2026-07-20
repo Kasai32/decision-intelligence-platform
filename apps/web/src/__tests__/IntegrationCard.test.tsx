@@ -37,7 +37,9 @@ describe('IntegrationCard (ADR-0012 — per-provider admin actions)', () => {
     fireEvent.click(screen.getByRole('button', { name: /set broken/i }));
 
     await waitFor(() => {
-      expect(apiClient.patch).toHaveBeenCalledWith('/integrations/DATADOG/config/status', { status: 'BROKEN' });
+      expect(apiClient.patch).toHaveBeenCalledWith('/integrations/DATADOG/config/status', {
+        status: 'BROKEN',
+      });
     });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'BROKEN' }));
   });

@@ -1,4 +1,9 @@
-import { EvidenceSourceCategory, IncidentSeverity, IncidentType, IntegrationKey } from '@prisma/client';
+import {
+  EvidenceSourceCategory,
+  IncidentSeverity,
+  IncidentType,
+  IntegrationKey,
+} from '@prisma/client';
 import { DecisionIntelligenceEngineService } from '../decision-intelligence/decision-intelligence-engine.service';
 import { DecisionsService } from '../decisions/decisions.service';
 import { EvidenceService } from '../evidence/evidence.service';
@@ -167,7 +172,8 @@ describe('SimulationScenarioService (ADR-0013)', () => {
       await service.trigger('t1', 'u1', 'CLOUD_OUTAGE_PARTIAL_EVIDENCE');
 
       expect(decisionIntelligence.analyze).toHaveBeenCalledTimes(1);
-      const [tenantId, incidentId, submittedByUserId, dto] = decisionIntelligence.analyze.mock.calls[0];
+      const [tenantId, incidentId, submittedByUserId, dto] =
+        decisionIntelligence.analyze.mock.calls[0];
       expect(tenantId).toBe('t1');
       expect(incidentId).toBe('incident-1');
       expect(submittedByUserId).toBe('u1');

@@ -10,7 +10,10 @@ const DECISION_OPENED_PATTERN = /^Decision opened: "(.*)"$/;
 /** `timeline` already carries every `DECISION_OPENED` event's `decisionId` — no new "list decisions" endpoint needed. */
 function decisionsFromTimeline(timeline: TimelineEvent[]): DecisionSummary[] {
   return timeline
-    .filter((event): event is TimelineEvent & { decisionId: string } => event.type === 'DECISION_OPENED' && event.decisionId !== null)
+    .filter(
+      (event): event is TimelineEvent & { decisionId: string } =>
+        event.type === 'DECISION_OPENED' && event.decisionId !== null,
+    )
     .map((event) => ({
       id: event.decisionId,
       question: DECISION_OPENED_PATTERN.exec(event.description)?.[1] ?? event.description,

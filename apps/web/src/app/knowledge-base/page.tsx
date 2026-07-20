@@ -32,7 +32,9 @@ export default function KnowledgeBasePage() {
             <CardTitle>Knowledge base</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">You need to sign in to search the knowledge base.</p>
+            <p className="text-sm text-muted-foreground">
+              You need to sign in to search the knowledge base.
+            </p>
             <Button asChild>
               <Link href="/login">Sign in</Link>
             </Button>
@@ -50,7 +52,9 @@ export default function KnowledgeBasePage() {
       const params = new URLSearchParams();
       if (query.trim()) params.set('query', query.trim());
       if (tags.trim()) params.set('tags', tags.trim());
-      const found = await apiClient.get<LessonLearned[]>(`/knowledge-base/search?${params.toString()}`);
+      const found = await apiClient.get<LessonLearned[]>(
+        `/knowledge-base/search?${params.toString()}`,
+      );
       setResults(found);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Search failed');

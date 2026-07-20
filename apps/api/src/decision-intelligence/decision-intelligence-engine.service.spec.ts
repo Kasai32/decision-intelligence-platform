@@ -71,7 +71,10 @@ describe('DecisionIntelligenceEngineService', () => {
           createdAt: new Date('2026-07-19T11:58:00.000Z'), // 2 min before NOW
         },
       ]);
-      prisma.intelligenceAnalysis.create.mockImplementation(({ data }) => ({ id: 'analysis-1', ...data }));
+      prisma.intelligenceAnalysis.create.mockImplementation(({ data }) => ({
+        id: 'analysis-1',
+        ...data,
+      }));
       prisma.timelineEvent.create.mockResolvedValue({});
 
       const result = await service.analyze('t1', 'i1', 'u1', validSubmission(), NOW);
@@ -98,7 +101,10 @@ describe('DecisionIntelligenceEngineService', () => {
         severity: IncidentSeverity.MEDIUM,
       });
       prisma.evidence.findMany.mockResolvedValue([]); // no evidence at all
-      prisma.intelligenceAnalysis.create.mockImplementation(({ data }) => ({ id: 'analysis-1', ...data }));
+      prisma.intelligenceAnalysis.create.mockImplementation(({ data }) => ({
+        id: 'analysis-1',
+        ...data,
+      }));
       prisma.timelineEvent.create.mockResolvedValue({});
 
       const result = await service.analyze('t1', 'i1', 'u1', validSubmission(), NOW);

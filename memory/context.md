@@ -77,7 +77,7 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 ## Decisions made in the decision-outcome calibration phase (see DECISION_LOG.md / ADR-0016 for full rationale)
 
 - `DecisionOutcome.outcomeQuality` is always human-supplied, never inferred (e.g. never auto-derived from "closed within SLA") — the system must not grade its own recommendation.
-- `intelligenceAnalysisId` links to whichever analysis existed *at `decision.decidedAt`*, not whatever's newest when the outcome is recorded (often much later, after incident closure).
+- `intelligenceAnalysisId` links to whichever analysis existed _at `decision.decidedAt`_, not whatever's newest when the outcome is recorded (often much later, after incident closure).
 - `MIN_SAMPLE_SIZE = 5` (combined GOOD+BAD per dimension) is a disclosed placeholder, not a real power-analysis result — chosen to be reachable without a large historical corpus in this environment; revisit once real usage volume is known.
 - Calibration is a measurement/feedback layer only — it does not (yet) feed back into ADR-0010's actual scoring weights (`RELIABILITY_BY_SOURCE_CATEGORY` etc.). That's a natural next step once enough labeled outcomes exist to justify it.
 

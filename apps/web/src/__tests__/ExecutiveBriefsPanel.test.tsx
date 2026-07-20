@@ -22,7 +22,8 @@ const brief: ExecutiveBrief = {
   title: 'Executive Brief — Payments outage',
   incidentStatus: 'MITIGATED',
   incidentSeverity: 'HIGH',
-  summary: 'Incident "Payments outage" is currently MITIGATED (HIGH severity). 1 of 1 decision(s) made.',
+  summary:
+    'Incident "Payments outage" is currently MITIGATED (HIGH severity). 1 of 1 decision(s) made.',
   businessImpact: null,
   keyDecisions: [],
   openRisks: [],
@@ -51,7 +52,9 @@ describe('ExecutiveBriefsPanel (ADR-0011 — Phase 5 Reporting)', () => {
     (apiClient.post as jest.Mock).mockResolvedValue(brief);
 
     render(<ExecutiveBriefsPanel incidentId="incident-1" />);
-    await waitFor(() => expect(screen.getByText(/no executive brief generated yet/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/no executive brief generated yet/i)).toBeInTheDocument(),
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /generate executive brief/i }));
 

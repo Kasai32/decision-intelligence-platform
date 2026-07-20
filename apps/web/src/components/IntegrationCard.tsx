@@ -8,7 +8,10 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card'
 import { Textarea } from './ui/textarea';
 import { apiClient, ApiError } from '../lib/api-client';
 
-const STATUS_VARIANT: Record<IntegrationStatusSummary['status'], 'success' | 'destructive' | 'outline'> = {
+const STATUS_VARIANT: Record<
+  IntegrationStatusSummary['status'],
+  'success' | 'destructive' | 'outline'
+> = {
   ACTIVE: 'success',
   BROKEN: 'destructive',
   NOT_CONFIGURED: 'outline',
@@ -109,9 +112,12 @@ export function IntegrationCard({ summary, onChange, onRemoved }: IntegrationCar
               rows={3}
             />
             <p className="text-xs text-muted-foreground">
-              Fixture credentials only (see ADR-0012) — no real OAuth exists in this environment. Try{' '}
-              <code className="rounded bg-muted px-1 py-0.5 font-mono">{'{"simulateFailure":true}'}</code> to
-              exercise the circuit breaker.
+              Fixture credentials only (see ADR-0012) — no real OAuth exists in this environment.
+              Try{' '}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono">
+                {'{"simulateFailure":true}'}
+              </code>{' '}
+              to exercise the circuit breaker.
             </p>
           </div>
         )}
@@ -129,12 +135,22 @@ export function IntegrationCard({ summary, onChange, onRemoved }: IntegrationCar
               <Button type="button" size="sm" disabled={pending} onClick={configure}>
                 {pending ? 'Saving…' : 'Save credentials'}
               </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setShowConfigureForm(false)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowConfigureForm(false)}
+              >
                 Cancel
               </Button>
             </>
           ) : (
-            <Button type="button" size="sm" variant="outline" onClick={() => setShowConfigureForm(true)}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setShowConfigureForm(true)}
+            >
               Configure
             </Button>
           )
@@ -158,7 +174,13 @@ export function IntegrationCard({ summary, onChange, onRemoved }: IntegrationCar
             >
               Set broken
             </Button>
-            <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={remove}>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={pending}
+              onClick={remove}
+            >
               Remove
             </Button>
           </>

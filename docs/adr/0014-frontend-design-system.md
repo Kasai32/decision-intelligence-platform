@@ -29,12 +29,12 @@ Two concrete gaps had to be resolved to satisfy this:
 
 A fixed, semantic token mapping — not ad hoc Tailwind classes scattered per component — defined once in `src/lib/severity.ts` and consumed by `SeverityBadge`:
 
-| `IncidentSeverity` | Color semantic | Rationale |
-| --- | --- | --- |
-| `CRITICAL` | red (`--critical`) | Immediate, active threat |
-| `HIGH` | orange/amber (`--high`) | Urgent, not yet critical |
-| `MEDIUM` | yellow (`--medium`) | Degraded, monitored |
-| `LOW` | slate/blue (`--low`) | Informational |
+| `IncidentSeverity` | Color semantic          | Rationale                |
+| ------------------ | ----------------------- | ------------------------ |
+| `CRITICAL`         | red (`--critical`)      | Immediate, active threat |
+| `HIGH`             | orange/amber (`--high`) | Urgent, not yet critical |
+| `MEDIUM`           | yellow (`--medium`)     | Degraded, monitored      |
+| `LOW`              | slate/blue (`--low`)    | Informational            |
 
 Applied consistently: incident list left-border + badge, Command Center header accent, and decision cards inherit their parent incident's severity color — one glance at color tells you what's on fire.
 
@@ -42,12 +42,12 @@ Applied consistently: incident list left-border + badge, Command Center header a
 
 Since `Decision` has no deadline field and adding one is backend work explicitly out of scope, `CountdownTimer` counts down to a deadline **computed, not stored**: `deadline = decision.createdAt + SLA_MINUTES[incident.severity]`, using a fixed, documented response-window table (`src/lib/sla-policy.ts`):
 
-| Severity | SLA response window |
-| --- | --- |
-| `CRITICAL` | 15 minutes |
-| `HIGH` | 60 minutes |
-| `MEDIUM` | 4 hours |
-| `LOW` | 24 hours |
+| Severity   | SLA response window |
+| ---------- | ------------------- |
+| `CRITICAL` | 15 minutes          |
+| `HIGH`     | 60 minutes          |
+| `MEDIUM`   | 4 hours             |
+| `LOW`      | 24 hours            |
 
 This follows the same anti-fabrication discipline as every prior phase (Principle 3 — see ADR-0010/0011/0013): the countdown is never a fake/random number, it's a deterministic function of two real fields (`decision.createdAt`, `incident.severity`) against an explicit, disclosed policy — exactly like `evidenceCompleteness`'s scoring tables. **It is, however, a genuinely new business assumption this task introduces on the frontend alone** (no product/ops stakeholder specified these exact windows) — flagged here rather than silently presented as if it came from a real SLA configuration. `CountdownTimer` ticks client-side (`setInterval`, 1s), color-escalates (calm → amber under 50% remaining → red pulsing under 20% → a red "OVERDUE" state past the deadline), and is purely presentational: it reads `Decision`/`Incident` fields already returned by the existing (unmodified) `GET /incidents/:id/command-center` endpoint. No new endpoint, no schema change, no DTO change — zero backend surface touched, per the user's explicit constraint.
 

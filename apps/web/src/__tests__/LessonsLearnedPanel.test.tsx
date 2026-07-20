@@ -40,7 +40,9 @@ describe('LessonsLearnedPanel (ADR-0011 — gated on CLOSED incident)', () => {
     (apiClient.get as jest.Mock).mockResolvedValue([]);
     render(<LessonsLearnedPanel incidentId="incident-1" incidentStatus="MITIGATED" />);
 
-    await waitFor(() => expect(screen.getByText(/no lesson learned recorded yet/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/no lesson learned recorded yet/i)).toBeInTheDocument(),
+    );
     expect(screen.getByText(/current status: MITIGATED/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/title/i)).not.toBeInTheDocument();
   });
@@ -50,10 +52,14 @@ describe('LessonsLearnedPanel (ADR-0011 — gated on CLOSED incident)', () => {
     (apiClient.post as jest.Mock).mockResolvedValue(lesson);
 
     render(<LessonsLearnedPanel incidentId="incident-1" incidentStatus="CLOSED" />);
-    await waitFor(() => expect(screen.getByText(/no lesson learned recorded yet/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/no lesson learned recorded yet/i)).toBeInTheDocument(),
+    );
 
     fireEvent.change(screen.getByLabelText(/^title$/i), { target: { value: lesson.title } });
-    fireEvent.change(screen.getByLabelText(/what happened/i), { target: { value: lesson.whatHappened } });
+    fireEvent.change(screen.getByLabelText(/what happened/i), {
+      target: { value: lesson.whatHappened },
+    });
     fireEvent.click(screen.getByRole('button', { name: /record lesson learned/i }));
 
     await waitFor(() => {

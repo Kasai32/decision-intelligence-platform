@@ -12,10 +12,17 @@ const analysis: IntelligenceAnalysis = {
     description: 'Checkout is degraded for all customers.',
     affectedSystems: ['payments-api', 'checkout-web'],
   },
-  criticalRisks: [{ description: 'Revenue loss during peak hours', likelihood: 'HIGH', impact: 'HIGH' }],
+  criticalRisks: [
+    { description: 'Revenue loss during peak hours', likelihood: 'HIGH', impact: 'HIGH' },
+  ],
   conflictingInformation: ['Datadog shows recovery; PagerDuty still open'],
-  recommendedDecision: { label: 'Roll back deploy', description: 'Revert to previous stable release.' },
-  alternativeDecisions: [{ label: 'Scale up', description: 'Add replicas instead of rolling back.' }],
+  recommendedDecision: {
+    label: 'Roll back deploy',
+    description: 'Revert to previous stable release.',
+  },
+  alternativeDecisions: [
+    { label: 'Scale up', description: 'Add replicas instead of rolling back.' },
+  ],
   expectedConsequences: 'Brief downtime during rollback, then recovery.',
   immediateNextActions: ['Page on-call SRE', 'Notify status page'],
   executiveSummary: 'Recommend immediate rollback — high confidence, evidence-backed.',
@@ -45,8 +52,14 @@ describe('IntelligenceAnalysisPanel (ADR-0010 — Decision Intelligence Engine)'
       'aria-valuenow',
       '80',
     );
-    expect(screen.getByRole('progressbar', { name: /data freshness/i })).toHaveAttribute('aria-valuenow', '90');
-    expect(screen.getByRole('progressbar', { name: /ai certainty/i })).toHaveAttribute('aria-valuenow', '55');
+    expect(screen.getByRole('progressbar', { name: /data freshness/i })).toHaveAttribute(
+      'aria-valuenow',
+      '90',
+    );
+    expect(screen.getByRole('progressbar', { name: /ai certainty/i })).toHaveAttribute(
+      'aria-valuenow',
+      '55',
+    );
   });
 
   it('always surfaces missing information, never hides it by omission (Principle 3)', () => {

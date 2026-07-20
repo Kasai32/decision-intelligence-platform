@@ -52,7 +52,9 @@ export function LessonsLearnedPanel({ incidentId, incidentStatus }: LessonsLearn
     apiClient
       .get<LessonLearned[]>(`/incidents/${incidentId}/lessons-learned`)
       .then(setLessons)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load lessons learned'));
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : 'Failed to load lessons learned'),
+      );
   }, [incidentId]);
 
   async function handleSubmit(event: FormEvent) {
@@ -60,14 +62,17 @@ export function LessonsLearnedPanel({ incidentId, incidentStatus }: LessonsLearn
     setError(null);
     setSubmitting(true);
     try {
-      const lesson = await apiClient.post<LessonLearned>(`/incidents/${incidentId}/lessons-learned`, {
-        title,
-        whatHappened,
-        whatWentWell: parseLines(whatWentWell),
-        whatToImprove: parseLines(whatToImprove),
-        actionItems: parseLines(actionItems),
-        tags: parseCommaList(tags),
-      });
+      const lesson = await apiClient.post<LessonLearned>(
+        `/incidents/${incidentId}/lessons-learned`,
+        {
+          title,
+          whatHappened,
+          whatWentWell: parseLines(whatWentWell),
+          whatToImprove: parseLines(whatToImprove),
+          actionItems: parseLines(actionItems),
+          tags: parseCommaList(tags),
+        },
+      );
       setLessons((current) => [lesson, ...(current ?? [])]);
       setTitle('');
       setWhatHappened('');
@@ -125,7 +130,8 @@ export function LessonsLearnedPanel({ incidentId, incidentStatus }: LessonsLearn
       {incidentStatus !== 'CLOSED' ? (
         <CardFooter>
           <p className="text-xs text-muted-foreground">
-            Lessons learned can only be recorded once this incident is CLOSED (current status: {incidentStatus}).
+            Lessons learned can only be recorded once this incident is CLOSED (current status:{' '}
+            {incidentStatus}).
           </p>
         </CardFooter>
       ) : (
@@ -133,7 +139,12 @@ export function LessonsLearnedPanel({ incidentId, incidentStatus }: LessonsLearn
           <CardContent className="flex flex-col gap-3 pt-0">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="lessonTitle">Title</Label>
-              <Input id="lessonTitle" required value={title} onChange={(e) => setTitle(e.target.value)} />
+              <Input
+                id="lessonTitle"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="whatHappened">What happened</Label>
@@ -146,7 +157,11 @@ export function LessonsLearnedPanel({ incidentId, incidentStatus }: LessonsLearn
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="whatWentWell">What went well (one per line)</Label>
-              <Textarea id="whatWentWell" value={whatWentWell} onChange={(e) => setWhatWentWell(e.target.value)} />
+              <Textarea
+                id="whatWentWell"
+                value={whatWentWell}
+                onChange={(e) => setWhatWentWell(e.target.value)}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="whatToImprove">What to improve (one per line)</Label>
@@ -158,7 +173,11 @@ export function LessonsLearnedPanel({ incidentId, incidentStatus }: LessonsLearn
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="actionItems">Action items (one per line)</Label>
-              <Textarea id="actionItems" value={actionItems} onChange={(e) => setActionItems(e.target.value)} />
+              <Textarea
+                id="actionItems"
+                value={actionItems}
+                onChange={(e) => setActionItems(e.target.value)}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="lessonTags">Tags (comma-separated)</Label>

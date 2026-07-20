@@ -20,19 +20,31 @@ export interface IncidentDecisionPanelProps {
  * decision at all, it renders an explicit empty-state message instead of a
  * blank panel.
  */
-export function IncidentDecisionPanel({ openDecisions, lastDecision, severity }: IncidentDecisionPanelProps) {
+export function IncidentDecisionPanel({
+  openDecisions,
+  lastDecision,
+  severity,
+}: IncidentDecisionPanelProps) {
   if (openDecisions.length > 0) {
     return (
-      <section aria-label="Decisions required" data-state="open-decision" className="flex flex-col gap-3">
+      <section
+        aria-label="Decisions required"
+        data-state="open-decision"
+        className="flex flex-col gap-3"
+      >
         <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
           <HelpCircle className="h-5 w-5 text-medium" />
-          {openDecisions.length === 1 ? 'Decision required' : `${openDecisions.length} decisions required`}
+          {openDecisions.length === 1
+            ? 'Decision required'
+            : `${openDecisions.length} decisions required`}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {openDecisions.map((decision) => (
             <Card key={decision.id} data-decision-id={decision.id} className="border-medium/30">
               <CardHeader>
-                <CardTitle className="text-sm font-medium leading-snug">{decision.question}</CardTitle>
+                <CardTitle className="text-sm font-medium leading-snug">
+                  {decision.question}
+                </CardTitle>
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground">
                 Awaiting a named human decision.
@@ -84,7 +96,9 @@ export function IncidentDecisionPanel({ openDecisions, lastDecision, severity }:
             No decisions recorded yet for this incident
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-xs text-muted-foreground">Open a decision to start tracking one.</CardContent>
+        <CardContent className="text-xs text-muted-foreground">
+          Open a decision to start tracking one.
+        </CardContent>
       </Card>
     </section>
   );

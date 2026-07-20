@@ -8,7 +8,9 @@ export const SEVERITY_LABEL: Record<IncidentSeverity, string> = {
 };
 
 /** Matches the `critical`/`high`/`medium`/`low` Badge variants 1:1 (see ADR-0014). */
-export function severityBadgeVariant(severity: IncidentSeverity): 'critical' | 'high' | 'medium' | 'low' {
+export function severityBadgeVariant(
+  severity: IncidentSeverity,
+): 'critical' | 'high' | 'medium' | 'low' {
   switch (severity) {
     case 'CRITICAL':
       return 'critical';

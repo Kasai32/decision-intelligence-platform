@@ -61,7 +61,9 @@ describe('IncidentDecisionPanel — North Star / no-blank-state contract (ADR-00
   });
 
   it('shows the outcome of the last decided decision when there is no open one', () => {
-    render(<IncidentDecisionPanel openDecisions={[]} lastDecision={decidedDecision} severity="LOW" />);
+    render(
+      <IncidentDecisionPanel openDecisions={[]} lastDecision={decidedDecision} severity="LOW" />,
+    );
     expect(screen.getByRole('heading', { name: /last decision/i })).toBeInTheDocument();
     expect(screen.getByText(decidedDecision.humanDecision as string)).toBeInTheDocument();
   });
@@ -76,7 +78,11 @@ describe('IncidentDecisionPanel — North Star / no-blank-state contract (ADR-00
 
   it('exposes a stable data-state attribute per state for future e2e assertions', () => {
     const { rerender, container } = render(
-      <IncidentDecisionPanel openDecisions={[openDecision]} lastDecision={null} severity="MEDIUM" />,
+      <IncidentDecisionPanel
+        openDecisions={[openDecision]}
+        lastDecision={null}
+        severity="MEDIUM"
+      />,
     );
     expect(container.querySelector('[data-state="open-decision"]')).not.toBeNull();
 

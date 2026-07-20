@@ -40,7 +40,9 @@ describe('DecisionOutcomePanel (ADR-0016 — human-attested outcomes)', () => {
   });
 
   it('explains the CLOSED gate instead of showing a form for a non-CLOSED incident', async () => {
-    (apiClient.get as jest.Mock).mockRejectedValue(new ApiError(404, 'No outcome recorded for this decision'));
+    (apiClient.get as jest.Mock).mockRejectedValue(
+      new ApiError(404, 'No outcome recorded for this decision'),
+    );
     render(<DecisionOutcomePanel decisions={decisions} incidentStatus="RESOLVED" />);
 
     await waitFor(() => expect(screen.getByText(/current status: RESOLVED/i)).toBeInTheDocument());
@@ -57,7 +59,9 @@ describe('DecisionOutcomePanel (ADR-0016 — human-attested outcomes)', () => {
   });
 
   it('records a new outcome for a CLOSED incident and shows it immediately', async () => {
-    (apiClient.get as jest.Mock).mockRejectedValue(new ApiError(404, 'No outcome recorded for this decision'));
+    (apiClient.get as jest.Mock).mockRejectedValue(
+      new ApiError(404, 'No outcome recorded for this decision'),
+    );
     (apiClient.post as jest.Mock).mockResolvedValue(recordedOutcome);
 
     render(<DecisionOutcomePanel decisions={decisions} incidentStatus="CLOSED" />);
