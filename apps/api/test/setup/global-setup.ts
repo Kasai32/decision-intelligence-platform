@@ -35,5 +35,12 @@ export default async function globalSetup(): Promise<void> {
     stdio: 'inherit',
   });
 
+  // The `dip_app` role (created by the app_role_least_privilege migration
+  // above) is what apps/api's PrismaService actually connects as — see
+  // ADR-0015. Without this, the app would run as the same superuser
+  // DATABASE_URL uses, and Postgres RLS would be enforced against
+  // literally nothing in this e2e run (superusers always bypass RLS).
+  process.env.APP_DATABASE_URL = `postgresql://dip_app:dip-app-dev-only-change-me@${container.getHost()}:${container.getPort()}/${container.getDatabase()}`;
+
   (globalThis as { __POSTGRES_CONTAINER__?: unknown }).__POSTGRES_CONTAINER__ = container;
 }

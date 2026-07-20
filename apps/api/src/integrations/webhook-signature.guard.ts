@@ -3,6 +3,7 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { IntegrationConfigStatus, IntegrationKey } from '@prisma/client';
 import { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
+import { runInTenantContext } from '../prisma/tenant-rls.context';
 import { CredentialsEncryptionService } from './credentials-encryption.service';
 
 const SIGNATURE_HEADER = 'x-signature';
@@ -14,6 +15,14 @@ const SIGNATURE_HEADER = 'x-signature';
  * no user session, not `JwtAuthGuard`. Uses `timingSafeEqual` to avoid a
  * timing side-channel. Any failure -> 401, and the payload is never parsed
  * or persisted.
+ *
+ * Establishes its own Postgres RLS tenant context (see ADR-0015) around
+ * its `integrationConfig` lookup: this runs as a guard, before
+ * `TenantRlsInterceptor` (which only fires for JWT-authenticated routes),
+ * so it can't rely on that interceptor — its own tenant identity is
+ * already known from the URL at this point, the same trust boundary
+ * `IntegrationConfigService`'s already-authenticated management endpoints
+ * use.
  */
 @Injectable()
 export class WebhookSignatureGuard implements CanActivate {
@@ -61,9 +70,11 @@ export class WebhookSignatureGuard implements CanActivate {
   }
 
   private async getWebhookSecret(tenantId: string, providerType: string): Promise<string | null> {
-    const config = await this.prisma.integrationConfig.findUnique({
-      where: { tenantId_providerType: { tenantId, providerType: providerType as IntegrationKey } },
-    });
+    const config = await runInTenantContext(this.prisma, tenantId, () =>
+      this.prisma.integrationConfig.findUnique({
+        where: { tenantId_providerType: { tenantId, providerType: providerType as IntegrationKey } },
+      }),
+    );
     if (!config || config.status !== IntegrationConfigStatus.ACTIVE) {
       return null;
     }

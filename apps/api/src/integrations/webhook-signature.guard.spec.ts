@@ -28,12 +28,20 @@ function makeContext(
 }
 
 describe('WebhookSignatureGuard — adversarial: fake alert injection', () => {
-  let prisma: { integrationConfig: { findUnique: jest.Mock } };
+  let prisma: { integrationConfig: { findUnique: jest.Mock }; $transaction: jest.Mock };
   let credentialsEncryption: { decrypt: jest.Mock };
   let guard: WebhookSignatureGuard;
 
   beforeEach(() => {
-    prisma = { integrationConfig: { findUnique: jest.fn() } };
+    prisma = {
+      integrationConfig: { findUnique: jest.fn() },
+      // getWebhookSecret() now wraps its lookup in runInTenantContext() (see
+      // ADR-0015) — this fake $transaction just runs the callback with a
+      // stub tx exposing $executeRaw (the RLS session-variable setter),
+      // since the guard's own query goes through `this.prisma` directly,
+      // not the transaction client, in this Prisma-mocked unit test.
+      $transaction: jest.fn((cb: (tx: unknown) => unknown) => cb({ $executeRaw: jest.fn() })),
+    };
     credentialsEncryption = { decrypt: jest.fn() };
     guard = new WebhookSignatureGuard(
       prisma as unknown as PrismaService,

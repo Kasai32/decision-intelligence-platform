@@ -26,6 +26,11 @@ services:
     environment:
       PORT: 3001
       DATABASE_URL: postgresql://dip:dip@postgres:5432/dip
+      # Least-privilege role the app actually connects as (see ADR-0015) —
+      # created by the app_role_least_privilege migration, applied
+      # automatically on container start same as every other migration.
+      # Dev-only password, matches the migration's default.
+      APP_DATABASE_URL: postgresql://dip_app:dip-app-dev-only-change-me@postgres:5432/dip
       # Dev-only default (see ADR-0005 / apps/api/.env.example) — override for any non-local environment.
       JWT_ACCESS_SECRET: dev-only-change-me
       JWT_ACCESS_TTL_SECONDS: 900

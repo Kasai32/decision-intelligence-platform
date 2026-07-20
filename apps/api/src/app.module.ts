@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ActionsModule } from './actions/actions.module';
 import { AuthModule } from './auth/auth.module';
@@ -8,6 +8,7 @@ import { DecisionIntelligenceModule } from './decision-intelligence/decision-int
 import { DecisionReportsModule } from './decision-reports/decision-reports.module';
 import { DecisionsModule } from './decisions/decisions.module';
 import { LoggerModule } from './common/logging/logger.module';
+import { TenantRlsInterceptor } from './common/interceptors/tenant-rls.interceptor';
 import { EvidenceModule } from './evidence/evidence.module';
 import { ExecutiveBriefsModule } from './executive-briefs/executive-briefs.module';
 import { HealthModule } from './health/health.module';
@@ -40,6 +41,10 @@ import { TenantsModule } from './tenants/tenants.module';
     SimulationModule,
     HealthModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // Sets the Postgres RLS session variable per request (see ADR-0015).
+    { provide: APP_INTERCEPTOR, useClass: TenantRlsInterceptor },
+  ],
 })
 export class AppModule {}

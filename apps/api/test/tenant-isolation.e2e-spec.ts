@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { runInTenantContext } from '../src/prisma/tenant-rls.context';
 import { bootstrapTestApp } from './utils/bootstrap-app';
 
 /**
@@ -65,5 +67,41 @@ describe('Tenant isolation (e2e)', () => {
       .get(`/api/v1/incidents/${incidentId}`)
       .set('Authorization', `Bearer ${tokenA}`);
     expect(tenantADetail.status).toBe(200);
+  });
+
+  it('Postgres RLS itself blocks a raw query with no app-level WHERE tenantId at all (see ADR-0015)', async () => {
+    const tokenA = await registerTenant();
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/incidents')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ title: 'RLS adversarial probe', description: 'Direct-SQL bypass attempt' });
+    expect(created.status).toBe(201);
+    const incidentId = created.body.id as string;
+    const tenantId = created.body.tenantId as string;
+
+    const prisma = app.get(PrismaService);
+
+    // Deliberately no `WHERE "tenantId" = ...` here at all — simulates the
+    // exact app-code mistake ADR-0004's isolation depends on never
+    // happening. With no RLS session context active, Postgres itself
+    // (FORCE ROW LEVEL SECURITY) must still return zero rows.
+    const withNoTenantContext = await prisma.$queryRaw<
+      { id: string }[]
+    >`SELECT id FROM "incidents" WHERE id = ${incidentId}`;
+    expect(withNoTenantContext).toHaveLength(0);
+
+    // Same unfiltered query, but with the correct tenant context set —
+    // proves the policy is actually scoping by tenant, not just blocking
+    // everything unconditionally.
+    const withCorrectTenantContext = await runInTenantContext(prisma, tenantId, () =>
+      prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "incidents" WHERE id = ${incidentId}`,
+    );
+    expect(withCorrectTenantContext).toHaveLength(1);
+
+    // And with a fabricated, unrelated tenant context — still zero rows.
+    const withWrongTenantContext = await runInTenantContext(prisma, randomUUID(), () =>
+      prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "incidents" WHERE id = ${incidentId}`,
+    );
+    expect(withWrongTenantContext).toHaveLength(0);
   });
 });
