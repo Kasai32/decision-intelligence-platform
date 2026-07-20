@@ -143,6 +143,9 @@ export default function CommandCenterPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
+            <Link href="/calibration">Calibration</Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
             <Link href="/integrations">Integrations</Link>
           </Button>
           <Button variant="outline" size="sm" asChild>

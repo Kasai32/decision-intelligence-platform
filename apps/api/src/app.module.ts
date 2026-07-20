@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ActionsModule } from './actions/actions.module';
 import { AuthModule } from './auth/auth.module';
 import { DecisionIntelligenceModule } from './decision-intelligence/decision-intelligence.module';
+import { DecisionOutcomesModule } from './decision-outcomes/decision-outcomes.module';
 import { DecisionReportsModule } from './decision-reports/decision-reports.module';
 import { DecisionsModule } from './decisions/decisions.module';
 import { LoggerModule } from './common/logging/logger.module';
@@ -35,6 +36,7 @@ import { TenantsModule } from './tenants/tenants.module';
     EvidenceModule,
     ActionsModule,
     DecisionIntelligenceModule,
+    DecisionOutcomesModule,
     ExecutiveBriefsModule,
     DecisionReportsModule,
     LessonsLearnedModule,

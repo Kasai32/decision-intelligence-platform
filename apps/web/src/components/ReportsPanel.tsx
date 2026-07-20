@@ -1,5 +1,6 @@
 import type { IncidentStatus, TimelineEvent } from '@dip/shared';
 import { useMemo } from 'react';
+import { DecisionOutcomePanel } from './DecisionOutcomePanel';
 import { DecisionReportsPanel, type DecisionSummary } from './DecisionReportsPanel';
 import { ExecutiveBriefsPanel } from './ExecutiveBriefsPanel';
 import { LessonsLearnedPanel } from './LessonsLearnedPanel';
@@ -30,6 +31,7 @@ export function ReportsPanel({ incidentId, incidentStatus, timeline }: ReportsPa
     <div className="flex flex-col gap-4">
       <ExecutiveBriefsPanel incidentId={incidentId} />
       <DecisionReportsPanel decisions={decisions} />
+      <DecisionOutcomePanel decisions={decisions} incidentStatus={incidentStatus} />
       <LessonsLearnedPanel incidentId={incidentId} incidentStatus={incidentStatus} />
     </div>
   );

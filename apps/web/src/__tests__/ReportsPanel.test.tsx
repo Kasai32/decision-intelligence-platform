@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import type { TimelineEvent } from '@dip/shared';
 import { ReportsPanel } from '../components/ReportsPanel';
-import { apiClient } from '../lib/api-client';
+import { apiClient, ApiError } from '../lib/api-client';
 
 jest.mock('../lib/api-client', () => ({
   apiClient: { get: jest.fn(), post: jest.fn() },
@@ -42,15 +42,22 @@ const timeline: TimelineEvent[] = [
 
 describe('ReportsPanel (derives decisions from the timeline — no new list-decisions endpoint)', () => {
   beforeEach(() => {
-    (apiClient.get as jest.Mock).mockResolvedValue([]);
+    (apiClient.get as jest.Mock).mockImplementation((path: string) =>
+      path.endsWith('/outcome')
+        ? Promise.reject(new ApiError(404, 'No outcome recorded for this decision'))
+        : Promise.resolve([]),
+    );
   });
 
   it('extracts the decision question from the DECISION_OPENED event description', async () => {
     render(<ReportsPanel incidentId="incident-1" incidentStatus="OPEN" timeline={timeline} />);
 
-    expect(await screen.findByText('Roll back the deploy?')).toBeInTheDocument();
+    expect(await screen.findAllByText('Roll back the deploy?')).toHaveLength(2); // Decision Reports panel + Decision Outcomes panel
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith('/decisions/decision-1/reports');
+    });
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/decisions/decision-1/outcome');
     });
   });
 });

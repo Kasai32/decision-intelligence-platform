@@ -28,3 +28,4 @@ An ADR captures a single significant, hard-to-reverse architectural decision: th
 | [0013](0013-simulation-scenario-architecture.md)         | User validation test scenarios: SimulationScenarioService (amends ADR-0009)          | Accepted |
 | [0014](0014-frontend-design-system.md)                   | Frontend design system: Tailwind v4 + CVA/Radix primitives, dark theme, SLA countdowns | Accepted |
 | [0015](0015-postgres-row-level-security.md)               | Postgres Row-Level Security as tenant-isolation defense-in-depth                     | Accepted |
+| [0016](0016-decision-outcome-calibration.md)               | Decision outcome calibration: closing the loop on the confidence model               | Accepted |

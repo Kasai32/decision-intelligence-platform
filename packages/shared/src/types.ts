@@ -62,7 +62,8 @@ export type TimelineEventType =
   | 'EXECUTIVE_BRIEF_GENERATED'
   | 'DECISION_REPORT_GENERATED'
   | 'LESSON_LEARNED_CREATED'
-  | 'INTEGRATION_BLOCKED';
+  | 'INTEGRATION_BLOCKED'
+  | 'DECISION_OUTCOME_RECORDED';
 
 /**
  * Shape returned by GET /incidents/:id/timeline — the immutable audit trail
@@ -274,4 +275,48 @@ export interface IntegrationStatusSummary {
   status: IntegrationConfigStatus | 'NOT_CONFIGURED';
   circuitState: string;
   updatedAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Decision outcome calibration (see ADR-0016) — type-only additions for the
+// frontend surface. No backend change.
+// ---------------------------------------------------------------------------
+
+export type DecisionOutcomeQuality = 'GOOD' | 'BAD' | 'MIXED' | 'UNKNOWN';
+
+/**
+ * A human's retrospective judgment of whether a DECIDED decision turned out
+ * well — see ADR-0016. Only recordable once the incident is CLOSED, exactly
+ * one per decision. `intelligenceAnalysisId` is always server-computed
+ * (whichever analysis existed at decision time, if any), never supplied.
+ */
+export interface DecisionOutcome {
+  id: string;
+  tenantId: string;
+  decisionId: string;
+  intelligenceAnalysisId: string | null;
+  outcomeQuality: DecisionOutcomeQuality;
+  notes: string | null;
+  recordedByUserId: string;
+  recordedAt: string;
+}
+
+export type CalibrationDimension = 'evidenceCompleteness' | 'sourceReliability' | 'dataFreshness' | 'aiCertainty';
+
+/** One confidence dimension's real, computed relationship to human-attested outcomes — see ADR-0016. */
+export interface DimensionCalibration {
+  dimension: CalibrationDimension;
+  goodSampleSize: number;
+  badSampleSize: number;
+  meanWhenGood: number | null;
+  meanWhenBad: number | null;
+  meanDifference: number | null;
+  sufficientData: boolean;
+}
+
+/** Shape returned by GET /decision-intelligence/calibration-report — see ADR-0016. */
+export interface CalibrationReport {
+  totalLabeledOutcomes: number;
+  minimumSampleSizeThreshold: number;
+  dimensions: DimensionCalibration[];
 }

@@ -33,6 +33,7 @@ model Tenant {
   decisionReports      DecisionReport[]
   lessonsLearned       LessonLearned[]
   integrationConfigs   IntegrationConfig[]
+  decisionOutcomes     DecisionOutcome[]
 
   @@map("tenants")
 }
@@ -59,6 +60,7 @@ model User {
   generatedBriefs   ExecutiveBrief[]       @relation("ExecutiveBriefGeneratedBy")
   generatedReports  DecisionReport[]       @relation("DecisionReportGeneratedBy")
   createdLessons    LessonLearned[]        @relation("LessonLearnedCreatedBy")
+  recordedOutcomes  DecisionOutcome[]      @relation("DecisionOutcomeRecordedBy")
 
   @@map("users")
 }
@@ -166,6 +168,7 @@ enum TimelineEventType {
   DECISION_REPORT_GENERATED
   LESSON_LEARNED_CREATED
   INTEGRATION_BLOCKED
+  DECISION_OUTCOME_RECORDED
 }
 
 enum ActionStatus {
@@ -239,6 +242,7 @@ model Decision {
   timelineEvents  TimelineEvent[]
   actions         Action[]
   decisionReports DecisionReport[]
+  outcome         DecisionOutcome?
 
   @@index([tenantId])
   @@index([incidentId])
@@ -375,6 +379,8 @@ model IntelligenceAnalysis {
   submittedBy       User     @relation("IntelligenceAnalysisSubmittedBy", fields: [submittedByUserId], references: [id])
   createdAt         DateTime @default(now())
 
+  decisionOutcomes DecisionOutcome[]
+
   @@index([tenantId])
   @@index([incidentId])
   @@map("intelligence_analyses")
@@ -472,6 +478,49 @@ model LessonLearned {
   @@index([tenantId])
   @@index([incidentId])
   @@map("lessons_learned")
+}
+
+// ---------------------------------------------------------------------------
+// Decision outcome calibration (see ADR-0016) — closes the loop between the
+// Decision Intelligence Engine's confidence dimensions (ADR-0010) and what
+// actually happened. The outcome judgment is always human-attested, never
+// computed by the system itself — same Principle 1 discipline as
+// DecisionsService.decide().
+// ---------------------------------------------------------------------------
+
+enum DecisionOutcomeQuality {
+  GOOD
+  BAD
+  MIXED
+  UNKNOWN
+}
+
+/// A human's retrospective judgment of whether a DECIDED decision turned out
+/// well — only recordable once the incident is CLOSED (mirrors
+/// LessonLearned's gate: a retrospective before closure isn't one). Links to
+/// whichever IntelligenceAnalysis existed at decision time (if any), so
+/// CalibrationService can correlate its confidence dimensions with a real,
+/// human-attested outcome. One outcome per decision.
+model DecisionOutcome {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  decisionId String   @unique
+  decision   Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  intelligenceAnalysisId String?
+  intelligenceAnalysis   IntelligenceAnalysis? @relation(fields: [intelligenceAnalysisId], references: [id], onDelete: SetNull)
+
+  outcomeQuality DecisionOutcomeQuality
+  notes          String?
+
+  recordedByUserId String
+  recordedBy       User     @relation("DecisionOutcomeRecordedBy", fields: [recordedByUserId], references: [id])
+  recordedAt       DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("decision_outcomes")
 }
 
 // ---------------------------------------------------------------------------

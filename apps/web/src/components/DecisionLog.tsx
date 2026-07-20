@@ -8,6 +8,7 @@ import {
   HelpCircle,
   ListTree,
   Sparkles,
+  Target,
   XCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -27,6 +28,7 @@ const EVENT_ICON: Record<TimelineEventType, typeof Flame> = {
   DECISION_REPORT_GENERATED: FileText,
   LESSON_LEARNED_CREATED: FileText,
   INTEGRATION_BLOCKED: AlertOctagon,
+  DECISION_OUTCOME_RECORDED: Target,
 };
 
 const EVENT_ACCENT: Record<TimelineEventType, string> = {
@@ -43,6 +45,7 @@ const EVENT_ACCENT: Record<TimelineEventType, string> = {
   DECISION_REPORT_GENERATED: 'text-primary',
   LESSON_LEARNED_CREATED: 'text-primary',
   INTEGRATION_BLOCKED: 'text-destructive',
+  DECISION_OUTCOME_RECORDED: 'text-low',
 };
 
 export interface DecisionLogProps {
