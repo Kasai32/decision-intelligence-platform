@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import {
+  Evidence,
   EvidenceSourceCategory,
   Incident,
   IntelligenceAnalysis,
@@ -9,16 +10,15 @@ import {
   TimelineEventType,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { computeAiCertainty } from './scoring/ai-certainty';
-import { computeDataFreshness } from './scoring/data-freshness';
-import {
-  computeEvidenceCompleteness,
-  REQUIRED_EVIDENCE_SOURCES,
-} from './scoring/evidence-completeness';
-import { computeSourceReliability } from './scoring/source-reliability';
+import { buildConfidenceBreakdown, ConfidenceBreakdown } from './confidence-breakdown';
+import { REQUIRED_EVIDENCE_SOURCES } from './scoring/evidence-completeness';
 import { AIOutputContractDto } from './dto/ai-output-contract.dto';
 import { SubmitIntelligenceAnalysisDto } from './dto/submit-intelligence-analysis.dto';
 import { formatValidationErrors } from './format-validation-errors';
+
+export type IntelligenceAnalysisWithBreakdown = IntelligenceAnalysis & {
+  confidenceBreakdown: ConfidenceBreakdown;
+};
 
 @Injectable()
 export class DecisionIntelligenceEngineService {
@@ -30,11 +30,12 @@ export class DecisionIntelligenceEngineService {
    * with the caller-supplied qualitative fields, validates the assembled
    * object against AIOutputContractDto, persists it, and records a
    * TimelineEvent. See ADR-0010. Returns the persisted row (the same flat
-   * shape `list()` below returns), not the `AIOutputContractDto` used only
-   * to validate the assembled contract before writing it — the two used to
-   * disagree (dimensions nested here, flat in `list()`), a real
-   * inconsistency found while building the `apps/web` Decision Intelligence
-   * tab (see DECISION_LOG.md, 2026-07-20).
+   * shape `list()` below returns) plus a `confidenceBreakdown` — the
+   * "show your work" trace behind each dimension (see ADR-0019) — not the
+   * `AIOutputContractDto` used only to validate the assembled contract
+   * before writing it — the two used to disagree (dimensions nested here,
+   * flat in `list()`), a real inconsistency found while building the
+   * `apps/web` Decision Intelligence tab (see DECISION_LOG.md, 2026-07-20).
    */
   async analyze(
     tenantId: string,
@@ -42,22 +43,23 @@ export class DecisionIntelligenceEngineService {
     submittedByUserId: string,
     dto: SubmitIntelligenceAnalysisDto,
     now: Date = new Date(),
-  ): Promise<IntelligenceAnalysis> {
+  ): Promise<IntelligenceAnalysisWithBreakdown> {
     const incident = await this.getIncidentOrThrow(tenantId, incidentId);
     const evidence = await this.prisma.evidence.findMany({ where: { tenantId, incidentId } });
-
     const presentCategories = evidence.map((item) => item.sourceCategory);
-    const uniqueCategoryCount = new Set(presentCategories).size;
 
+    const confidenceBreakdown = buildConfidenceBreakdown(
+      incident.type,
+      incident.severity,
+      evidence,
+      dto.conflictingInformation.length,
+      now,
+    );
     const confidenceDimensions = {
-      evidenceCompleteness: computeEvidenceCompleteness(incident.type, presentCategories),
-      sourceReliability: computeSourceReliability(presentCategories),
-      dataFreshness: computeDataFreshness(evidence, incident.severity, now),
-      aiCertainty: computeAiCertainty(
-        evidence.length,
-        uniqueCategoryCount,
-        dto.conflictingInformation.length,
-      ),
+      evidenceCompleteness: confidenceBreakdown.evidenceCompleteness.score,
+      sourceReliability: confidenceBreakdown.sourceReliability.score,
+      dataFreshness: confidenceBreakdown.dataFreshness.score,
+      aiCertainty: confidenceBreakdown.aiCertainty.score,
     };
 
     const missingInformation = this.computeMissingEvidence(incident, presentCategories);
@@ -111,14 +113,46 @@ export class DecisionIntelligenceEngineService {
       },
     });
 
-    return created;
+    return { ...created, confidenceBreakdown };
   }
 
-  async list(tenantId: string, incidentId: string): Promise<IntelligenceAnalysis[]> {
-    await this.getIncidentOrThrow(tenantId, incidentId);
-    return this.prisma.intelligenceAnalysis.findMany({
+  async list(tenantId: string, incidentId: string): Promise<IntelligenceAnalysisWithBreakdown[]> {
+    const incident = await this.getIncidentOrThrow(tenantId, incidentId);
+    const analyses = await this.prisma.intelligenceAnalysis.findMany({
       where: { tenantId, incidentId },
       orderBy: { createdAt: 'desc' },
+    });
+    if (analyses.length === 0) {
+      return [];
+    }
+
+    // One batched query for every analysis's evidence, instead of N — each
+    // analysis's evidenceUsed is a frozen snapshot of real Evidence ids.
+    const evidenceIds = Array.from(new Set(analyses.flatMap((a) => a.evidenceUsed)));
+    const evidenceRows =
+      evidenceIds.length > 0
+        ? await this.prisma.evidence.findMany({ where: { tenantId, id: { in: evidenceIds } } })
+        : [];
+    const evidenceById = new Map(evidenceRows.map((item) => [item.id, item]));
+
+    return analyses.map((analysis) => {
+      const evidenceForAnalysis = analysis.evidenceUsed
+        .map((id) => evidenceById.get(id))
+        .filter((item): item is Evidence => item !== undefined);
+
+      // now = the analysis's own createdAt, not the live clock: dataFreshness
+      // was frozen at that instant when it was persisted, and must always
+      // recompute to that exact same number, not a lower one that keeps
+      // dropping every time an old analysis is viewed later (see ADR-0019).
+      const confidenceBreakdown = buildConfidenceBreakdown(
+        incident.type,
+        incident.severity,
+        evidenceForAnalysis,
+        analysis.conflictingInformation.length,
+        analysis.createdAt,
+      );
+
+      return { ...analysis, confidenceBreakdown };
     });
   }
 

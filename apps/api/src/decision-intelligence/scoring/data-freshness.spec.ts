@@ -1,5 +1,5 @@
 import { IncidentSeverity } from '@prisma/client';
-import { computeDataFreshness } from './data-freshness';
+import { computeDataFreshness, explainDataFreshness } from './data-freshness';
 
 const BASE_TIME = new Date('2026-07-19T12:00:00.000Z');
 
@@ -79,5 +79,31 @@ describe('computeDataFreshness — time-based degradation', () => {
       BASE_TIME,
     );
     expect(a).toBe(b);
+  });
+});
+
+describe('explainDataFreshness', () => {
+  it('names the exact evidence, elapsed minutes, and degradation factor behind the score', () => {
+    const breakdown = explainDataFreshness(
+      [
+        { id: 'ev-old', createdAt: minutesAgo(120) },
+        { id: 'ev-new', createdAt: minutesAgo(5) },
+      ],
+      IncidentSeverity.CRITICAL,
+      BASE_TIME,
+    );
+
+    expect(breakdown.score).toBe(75); // 100 - 5*5
+    expect(breakdown.mostRecentEvidenceId).toBe('ev-new');
+    expect(breakdown.minutesSinceMostRecent).toBe(5);
+    expect(breakdown.degradationFactorPerMinute).toBe(5);
+    expect(breakdown.severity).toBe(IncidentSeverity.CRITICAL);
+  });
+
+  it('reports a null evidence reference for an incident with no evidence at all', () => {
+    const breakdown = explainDataFreshness([], IncidentSeverity.MEDIUM, BASE_TIME);
+    expect(breakdown.score).toBe(0);
+    expect(breakdown.mostRecentEvidenceId).toBeNull();
+    expect(breakdown.minutesSinceMostRecent).toBeNull();
   });
 });

@@ -31,3 +31,4 @@ An ADR captures a single significant, hard-to-reverse architectural decision: th
 | [0016](0016-decision-outcome-calibration.md)             | Decision outcome calibration: closing the loop on the confidence model                 | Accepted                       |
 | [0017](0017-multi-tenant-login.md)                       | Multi-tenant login: a tenant-selection step, not a blocked account                     | Accepted                       |
 | [0018](0018-ai-drafting-for-decision-intelligence.md)    | AI drafting for the Decision Intelligence Engine (Anthropic Claude, draft-only)        | Accepted                       |
+| [0019](0019-confidence-score-explainability.md)          | Confidence score explainability: "show your work" in the API and UI                    | Accepted                       |

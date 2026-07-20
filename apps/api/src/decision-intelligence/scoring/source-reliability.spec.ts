@@ -1,5 +1,5 @@
 import { EvidenceSourceCategory } from '@prisma/client';
-import { computeSourceReliability } from './source-reliability';
+import { computeSourceReliability, explainSourceReliability } from './source-reliability';
 
 describe('computeSourceReliability', () => {
   it('returns 0 for no evidence — an honest absence, not a fabricated default', () => {
@@ -31,5 +31,34 @@ describe('computeSourceReliability', () => {
         EvidenceSourceCategory.CHAT,
       ]),
     ).toBe(77); // (95 + 95 + 40) / 3 = 76.67, rounded to 77
+  });
+});
+
+describe('explainSourceReliability', () => {
+  it('matches computeSourceReliability’s score exactly, with a per-evidence breakdown', () => {
+    const breakdown = explainSourceReliability([
+      { id: 'ev-1', source: 'CloudTrail', sourceCategory: EvidenceSourceCategory.CLOUD_PROVIDER },
+      { id: 'ev-2', source: '#incident-response', sourceCategory: EvidenceSourceCategory.CHAT },
+    ]);
+
+    expect(breakdown.score).toBe(68);
+    expect(breakdown.perEvidence).toEqual([
+      {
+        evidenceId: 'ev-1',
+        source: 'CloudTrail',
+        sourceCategory: EvidenceSourceCategory.CLOUD_PROVIDER,
+        reliability: 95,
+      },
+      {
+        evidenceId: 'ev-2',
+        source: '#incident-response',
+        sourceCategory: EvidenceSourceCategory.CHAT,
+        reliability: 40,
+      },
+    ]);
+  });
+
+  it('returns an empty breakdown with score 0 for no evidence', () => {
+    expect(explainSourceReliability([])).toEqual({ perEvidence: [], score: 0 });
   });
 });

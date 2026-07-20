@@ -39,3 +39,50 @@ export function computeDataFreshness(
 
   return Math.max(0, Math.round(100 - deltaMinutes * k));
 }
+
+export interface FreshnessEvidenceIdentifiedInput extends FreshnessEvidenceInput {
+  id: string;
+}
+
+/** The auditable "show your work" trace behind a dataFreshness score — see ADR-0019. */
+export interface DataFreshnessBreakdown {
+  mostRecentEvidenceId: string | null;
+  mostRecentEvidenceAt: string | null;
+  minutesSinceMostRecent: number | null;
+  severity: IncidentSeverity;
+  degradationFactorPerMinute: number;
+  score: number;
+}
+
+/** Same computation as computeDataFreshness, plus which evidence and how much time decayed the score — see ADR-0019. */
+export function explainDataFreshness(
+  evidence: FreshnessEvidenceIdentifiedInput[],
+  severity: IncidentSeverity,
+  now: Date = new Date(),
+): DataFreshnessBreakdown {
+  const k = FRESHNESS_DEGRADATION_FACTOR[severity];
+  if (evidence.length === 0) {
+    return {
+      mostRecentEvidenceId: null,
+      mostRecentEvidenceAt: null,
+      minutesSinceMostRecent: null,
+      severity,
+      degradationFactorPerMinute: k,
+      score: 0,
+    };
+  }
+
+  const mostRecent = evidence.reduce((latest, item) =>
+    item.createdAt > latest.createdAt ? item : latest,
+  );
+  const minutesSinceMostRecent = (now.getTime() - mostRecent.createdAt.getTime()) / 60_000;
+
+  return {
+    mostRecentEvidenceId: mostRecent.id,
+    mostRecentEvidenceAt: mostRecent.createdAt.toISOString(),
+    minutesSinceMostRecent: Math.round(minutesSinceMostRecent),
+    severity,
+    degradationFactorPerMinute: k,
+    score: computeDataFreshness(evidence, severity, now),
+  };
+}

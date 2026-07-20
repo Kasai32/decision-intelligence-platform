@@ -27,21 +27,39 @@ export const REQUIRED_EVIDENCE_SOURCES: Record<IncidentType, EvidenceSourceCateg
   [IncidentType.OTHER]: [],
 };
 
+/** The auditable "show your work" trace behind an evidenceCompleteness score — see ADR-0019. */
+export interface EvidenceCompletenessBreakdown {
+  requiredSources: EvidenceSourceCategory[];
+  presentRequiredSources: EvidenceSourceCategory[];
+  missingRequiredSources: EvidenceSourceCategory[];
+  score: number;
+}
+
 /**
  * Ratio of required evidence source categories actually present, as a
- * percentage (0-100). Example from ADR-0010: CLOUD_OUTAGE requires
- * [MONITORING, CLOUD_PROVIDER] — if only one is present, this returns 50.
+ * percentage (0-100), plus the exact sources counted. Example from
+ * ADR-0010: CLOUD_OUTAGE requires [MONITORING, CLOUD_PROVIDER] — if only
+ * one is present, this returns 50.
  */
+export function explainEvidenceCompleteness(
+  incidentType: IncidentType,
+  presentCategories: EvidenceSourceCategory[],
+): EvidenceCompletenessBreakdown {
+  const required = REQUIRED_EVIDENCE_SOURCES[incidentType];
+  const present = new Set(presentCategories);
+  const presentRequiredSources = required.filter((category) => present.has(category));
+  const missingRequiredSources = required.filter((category) => !present.has(category));
+  const score =
+    required.length === 0
+      ? 100
+      : Math.round((presentRequiredSources.length / required.length) * 100);
+
+  return { requiredSources: required, presentRequiredSources, missingRequiredSources, score };
+}
+
 export function computeEvidenceCompleteness(
   incidentType: IncidentType,
   presentCategories: EvidenceSourceCategory[],
 ): number {
-  const required = REQUIRED_EVIDENCE_SOURCES[incidentType];
-  if (required.length === 0) {
-    return 100;
-  }
-
-  const present = new Set(presentCategories);
-  const satisfied = required.filter((category) => present.has(category)).length;
-  return Math.round((satisfied / required.length) * 100);
+  return explainEvidenceCompleteness(incidentType, presentCategories).score;
 }

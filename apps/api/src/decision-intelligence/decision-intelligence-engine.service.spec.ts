@@ -165,12 +165,60 @@ describe('DecisionIntelligenceEngineService', () => {
       await expect(service.list('t1', 'missing')).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('returns analyses ordered newest first', async () => {
-      prisma.incident.findFirst.mockResolvedValue({ id: 'i1' });
-      prisma.intelligenceAnalysis.findMany.mockResolvedValue([{ id: 'a2' }, { id: 'a1' }]);
+    it('returns analyses ordered newest first, with no evidence lookup when none reference any', async () => {
+      prisma.incident.findFirst.mockResolvedValue({
+        id: 'i1',
+        type: IncidentType.CLOUD_OUTAGE,
+        severity: IncidentSeverity.HIGH,
+      });
+      prisma.intelligenceAnalysis.findMany.mockResolvedValue([
+        { id: 'a2', evidenceUsed: [], conflictingInformation: [], createdAt: NOW },
+        { id: 'a1', evidenceUsed: [], conflictingInformation: [], createdAt: NOW },
+      ]);
 
       const result = await service.list('t1', 'i1');
-      expect(result).toEqual([{ id: 'a2' }, { id: 'a1' }]);
+
+      expect(result.map((a) => a.id)).toEqual(['a2', 'a1']);
+      expect(prisma.evidence.findMany).not.toHaveBeenCalled();
+    });
+
+    it("rebuilds each analysis's confidenceBreakdown from the exact evidence it referenced, frozen at its own createdAt (ADR-0019)", async () => {
+      prisma.incident.findFirst.mockResolvedValue({
+        id: 'i1',
+        type: IncidentType.CLOUD_OUTAGE,
+        severity: IncidentSeverity.HIGH,
+      });
+      const analysisCreatedAt = new Date('2026-07-19T12:10:00.000Z');
+      prisma.intelligenceAnalysis.findMany.mockResolvedValue([
+        {
+          id: 'a1',
+          evidenceUsed: ['ev-1'],
+          conflictingInformation: [],
+          createdAt: analysisCreatedAt,
+        },
+      ]);
+      prisma.evidence.findMany.mockResolvedValue([
+        {
+          id: 'ev-1',
+          source: 'Datadog',
+          sourceCategory: EvidenceSourceCategory.MONITORING,
+          createdAt: new Date('2026-07-19T12:05:00.000Z'),
+        },
+      ]);
+
+      const [result] = await service.list('t1', 'i1');
+
+      expect(prisma.evidence.findMany).toHaveBeenCalledWith({
+        where: { tenantId: 't1', id: { in: ['ev-1'] } },
+      });
+      // CLOUD_OUTAGE requires [MONITORING, CLOUD_PROVIDER]; only MONITORING present -> 50.
+      expect(result.confidenceBreakdown.evidenceCompleteness.score).toBe(50);
+      expect(result.confidenceBreakdown.evidenceCompleteness.presentRequiredSources).toEqual([
+        EvidenceSourceCategory.MONITORING,
+      ]);
+      // 5 minutes old at HIGH (k=2), frozen at the analysis's own createdAt: 100 - 5*2 = 90.
+      expect(result.confidenceBreakdown.dataFreshness.score).toBe(90);
+      expect(result.confidenceBreakdown.dataFreshness.minutesSinceMostRecent).toBe(5);
     });
   });
 });

@@ -34,3 +34,41 @@ export function computeAiCertainty(
   const raw = volumeContribution + diversityContribution - conflictPenalty;
   return Math.max(0, Math.min(100, Math.round(raw)));
 }
+
+/** The auditable "show your work" trace behind an aiCertainty score — see ADR-0019. */
+export interface AiCertaintyBreakdown {
+  evidenceCount: number;
+  uniqueSourceCategoryCount: number;
+  conflictCount: number;
+  volumeContribution: number;
+  diversityContribution: number;
+  conflictPenalty: number;
+  score: number;
+}
+
+/** Same computation as computeAiCertainty, plus every intermediate term — see ADR-0019. */
+export function explainAiCertainty(
+  evidenceCount: number,
+  uniqueSourceCategoryCount: number,
+  conflictCount: number,
+): AiCertaintyBreakdown {
+  const volumeContribution = Math.min(
+    MAX_EVIDENCE_VOLUME_CONTRIBUTION,
+    evidenceCount * EVIDENCE_VOLUME_WEIGHT,
+  );
+  const diversityContribution = Math.min(
+    MAX_DIVERSITY_CONTRIBUTION,
+    uniqueSourceCategoryCount * DIVERSITY_WEIGHT,
+  );
+  const conflictPenalty = conflictCount * CONFLICT_PENALTY_WEIGHT;
+
+  return {
+    evidenceCount,
+    uniqueSourceCategoryCount,
+    conflictCount,
+    volumeContribution,
+    diversityContribution,
+    conflictPenalty,
+    score: computeAiCertainty(evidenceCount, uniqueSourceCategoryCount, conflictCount),
+  };
+}

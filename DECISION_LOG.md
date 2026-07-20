@@ -689,3 +689,15 @@ infra/          — Docker, CI/CD-adjacent infra config
 **Status:** Done. `apps/web` build and full unit suite (51 tests) verified clean after each of the three passes; no test was coupled to exact class names or hex values, so none needed updating. Verified live in a real browser against the running dev server after each pass (not just build/test) — this is the category of change where that matters most.
 
 ---
+
+## 2026-07-20 — Confidence score explainability: "show your work" (ADR-0019)
+
+**Context:** After the design pass, the user raised a substantive product critique bundling three things: copy quality, that the confidence/probability calculations are "misunderstood," and no sense of live progress. Asked which to tackle first, the user chose the calculation/probability confusion. Full rationale in [ADR-0019](docs/adr/0019-confidence-score-explainability.md) — ADR-0010 designed the four confidence dimensions to be auditable, but that auditability lived only in the API/code; the UI just showed bare percentages with no way to see why.
+
+**Decision:** Each scoring function gained a parallel `explainXxx()` alongside its existing `computeXxx()`, returning the full intermediate breakdown (which evidence contributed what, which required sources are present/missing, the exact decay-rate arithmetic, the volume/diversity/conflict terms). `computeXxx()` now just returns `explainXxx(...).score` — one source of truth. `POST /incidents/:id/analyze` and `GET /incidents/:id/analyses` both now return a `confidenceBreakdown` object alongside the flat numbers, computed fresh on every read (never persisted, never cached) from the same immutable evidence + incident data — `list()` uses each analysis's own frozen `createdAt` for the freshness calculation so an old analysis's displayed breakdown always matches its originally-persisted score, never a lower live-recomputed one. `apps/web`'s `ConfidenceMeter` gained an optional `explanation` prop rendered as a native "Why this score?" disclosure, with plain-language copy built from the real breakdown data.
+
+**Rationale:** An unexplained number is indistinguishable from a black box regardless of what's true underneath it — theoretical auditability (an engineer can read the source) isn't the same as a user actually seeing the reasoning on screen. This closes the real gap, not a symbolic one.
+
+**Status:** Done. 8 new unit tests across the four scoring files' `explainXxx()` functions, plus 2 new `DecisionIntelligenceEngineService.list()` tests (no evidence lookup when nothing's referenced; correct batched-and-frozen breakdown reconstruction). `apps/web`: `ConfidenceMeter` and `IntelligenceAnalysisPanel` tests updated, plus a new test asserting every dimension has a real, non-generic "Why this score?" trace with the actual numbers substituted in — not just that a disclosure element exists. 216 `apps/api` unit tests + 8 e2e suites (12 tests, the 9th — `ai-draft.e2e-spec.ts` — fails locally only because a real API key is present in this dev environment, same known artifact as before, CI unaffected) + 52 `apps/web` unit tests, `lint`/`build`/`format` all clean.
+
+---

@@ -1,5 +1,5 @@
 import { EvidenceSourceCategory, IncidentType } from '@prisma/client';
-import { computeEvidenceCompleteness } from './evidence-completeness';
+import { computeEvidenceCompleteness, explainEvidenceCompleteness } from './evidence-completeness';
 
 describe('computeEvidenceCompleteness', () => {
   it('returns 100 when no evidence sources are required (OTHER incident type)', () => {
@@ -44,5 +44,28 @@ describe('computeEvidenceCompleteness', () => {
         EvidenceSourceCategory.LOG_AGGREGATOR,
       ]),
     ).toBe(67);
+  });
+});
+
+describe('explainEvidenceCompleteness', () => {
+  it('names exactly which required sources are present and missing, matching the ADR-0010 example', () => {
+    const breakdown = explainEvidenceCompleteness(IncidentType.CLOUD_OUTAGE, [
+      EvidenceSourceCategory.MONITORING,
+    ]);
+
+    expect(breakdown.score).toBe(50);
+    expect(breakdown.requiredSources).toEqual([
+      EvidenceSourceCategory.MONITORING,
+      EvidenceSourceCategory.CLOUD_PROVIDER,
+    ]);
+    expect(breakdown.presentRequiredSources).toEqual([EvidenceSourceCategory.MONITORING]);
+    expect(breakdown.missingRequiredSources).toEqual([EvidenceSourceCategory.CLOUD_PROVIDER]);
+  });
+
+  it('reports no required/missing sources for OTHER (nothing required)', () => {
+    const breakdown = explainEvidenceCompleteness(IncidentType.OTHER, []);
+    expect(breakdown.score).toBe(100);
+    expect(breakdown.requiredSources).toEqual([]);
+    expect(breakdown.missingRequiredSources).toEqual([]);
   });
 });

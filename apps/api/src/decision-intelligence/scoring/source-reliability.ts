@@ -32,3 +32,39 @@ export function computeSourceReliability(sourceCategories: EvidenceSourceCategor
   );
   return Math.round(sum / sourceCategories.length);
 }
+
+export interface ReliabilityEvidenceInput {
+  id: string;
+  source: string;
+  sourceCategory: EvidenceSourceCategory;
+}
+
+/** One evidence item's contribution to the sourceReliability average — see ADR-0019. */
+export interface EvidenceReliabilityContribution {
+  evidenceId: string;
+  source: string;
+  sourceCategory: EvidenceSourceCategory;
+  reliability: number;
+}
+
+export interface SourceReliabilityBreakdown {
+  perEvidence: EvidenceReliabilityContribution[];
+  score: number;
+}
+
+/** Same computation as computeSourceReliability, plus which evidence contributed what — see ADR-0019. */
+export function explainSourceReliability(
+  evidence: ReliabilityEvidenceInput[],
+): SourceReliabilityBreakdown {
+  const perEvidence = evidence.map((item) => ({
+    evidenceId: item.id,
+    source: item.source,
+    sourceCategory: item.sourceCategory,
+    reliability: RELIABILITY_BY_SOURCE_CATEGORY[item.sourceCategory],
+  }));
+
+  return {
+    perEvidence,
+    score: computeSourceReliability(evidence.map((item) => item.sourceCategory)),
+  };
+}

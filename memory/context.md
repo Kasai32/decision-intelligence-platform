@@ -87,6 +87,17 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 - The tenant-selection token is a separate, short-lived (5 min), unpersisted JWT carrying only `{ sub, purpose: 'tenant-selection' }` — `JwtStrategy` explicitly rejects any token missing `tenantId`/`role`, so it can never work as a normal bearer token.
 - `POST /auth/select-tenant` never re-checks the password — the selection token is the proof that already happened.
 
+## Design system + product-critique pass (2026-07-20, after watching the live app in a browser)
+
+- The dark-console theme (ADR-0014) was refined toward a "top notch platform" elevation ladder (never near-black — background/card/border/muted-foreground all lifted a step, modeled on GitHub/Linear/Vercel) after live-browser feedback that the original pass was too dark and small badge text was illegible. Palette/geometry/typography choices are in `apps/web/src/app/globals.css`, not a separate ADR — a UI-polish iteration, not an architectural decision.
+- The user raised three real product critiques after using the app live: (1) copy/microcopy isn't enterprise-grade, (2) the confidence/probability numbers were "misunderstood" — no visible reasoning behind them, (3) no sense of live progress anywhere. Prioritized order, confirmed by the user: #2 first (now done, ADR-0019), then #3 (live/streaming feel), then #1 (copy pass) — #3 and #1 are still open.
+
+## Decisions made in the confidence-explainability phase (see DECISION_LOG.md / ADR-0019 for full rationale)
+
+- `explainXxx()` functions (one per scoring dimension) are the single source of truth; `computeXxx()` is now a thin wrapper returning just `.score` — a displayed explanation can never numerically disagree with the score it explains.
+- `confidenceBreakdown` is never persisted — always recomputed from already-immutable inputs (incident type/severity, the exact evidence rows an analysis's `evidenceUsed` references). `list()` uses each analysis's own frozen `createdAt` for the freshness recalculation, so reopening an old analysis always shows the same breakdown that matches its originally-persisted score.
+- Scoped to Decision Intelligence Engine only — Reporting's factual templates (ADR-0011) and Calibration's aggregate report (ADR-0016) are untouched.
+
 ## Open questions for later work
 
 - Hosting/deployment target (needed before CI/CD can deploy anything, not just build/test it).

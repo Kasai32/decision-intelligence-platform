@@ -1,12 +1,93 @@
-import type { IntelligenceAnalysis } from '@dip/shared';
+import type {
+  AiCertaintyBreakdown,
+  DataFreshnessBreakdown,
+  EvidenceCompletenessBreakdown,
+  EvidenceSourceCategory,
+  IntelligenceAnalysis,
+  SourceReliabilityBreakdown,
+} from '@dip/shared';
 import { AlertTriangle, Sparkles } from 'lucide-react';
 import { ConfidenceMeter } from './ConfidenceMeter';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Separator } from './ui/separator';
+import { EVIDENCE_SOURCE_CATEGORY_LABEL } from '../lib/evidence-source-category';
 import { severityBadgeVariant } from '../lib/severity';
 
 const RISK_VARIANT = { LOW: 'low', MEDIUM: 'medium', HIGH: 'critical' } as const;
+
+function humanizeSources(categories: EvidenceSourceCategory[]): string {
+  if (categories.length === 0) return 'none';
+  return categories.map((c) => EVIDENCE_SOURCE_CATEGORY_LABEL[c]).join(', ');
+}
+
+/** Plain-language "show your work" trace for evidenceCompleteness — see ADR-0019. */
+function EvidenceCompletenessExplanation({
+  breakdown,
+}: {
+  breakdown: EvidenceCompletenessBreakdown;
+}) {
+  if (breakdown.requiredSources.length === 0) {
+    return <p>This incident type has no required evidence sources, so completeness is 100%.</p>;
+  }
+  return (
+    <p>
+      {`${breakdown.presentRequiredSources.length} of ${breakdown.requiredSources.length} required sources present for this incident type — required: ${humanizeSources(breakdown.requiredSources)}. Present: ${humanizeSources(breakdown.presentRequiredSources)}. Missing: ${humanizeSources(breakdown.missingRequiredSources)}.`}
+    </p>
+  );
+}
+
+/** Plain-language "show your work" trace for sourceReliability — see ADR-0019. */
+function SourceReliabilityExplanation({ breakdown }: { breakdown: SourceReliabilityBreakdown }) {
+  if (breakdown.perEvidence.length === 0) {
+    return <p>No evidence has been submitted yet, so reliability is 0%.</p>;
+  }
+  return (
+    <div>
+      <ul className="flex flex-col gap-0.5">
+        {breakdown.perEvidence.map((item) => (
+          <li key={item.evidenceId}>
+            {item.source} ({EVIDENCE_SOURCE_CATEGORY_LABEL[item.sourceCategory]}):{' '}
+            <strong>{item.reliability}%</strong>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1">Average of the above = {breakdown.score}%.</p>
+    </div>
+  );
+}
+
+/** Plain-language "show your work" trace for dataFreshness — see ADR-0019. */
+function DataFreshnessExplanation({ breakdown }: { breakdown: DataFreshnessBreakdown }) {
+  if (breakdown.mostRecentEvidenceId === null) {
+    return <p>No evidence has been submitted yet, so freshness is 0%.</p>;
+  }
+  return (
+    <p>
+      Most recent evidence was submitted <strong>{breakdown.minutesSinceMostRecent} min</strong>{' '}
+      before this analysis. At {breakdown.severity} severity, freshness drops{' '}
+      {breakdown.degradationFactorPerMinute} point(s) per minute: 100 −{' '}
+      {breakdown.minutesSinceMostRecent} × {breakdown.degradationFactorPerMinute} ={' '}
+      {breakdown.score}%.
+    </p>
+  );
+}
+
+/** Plain-language "show your work" trace for aiCertainty — see ADR-0019. */
+function AiCertaintyExplanation({ breakdown }: { breakdown: AiCertaintyBreakdown }) {
+  return (
+    <p>
+      {breakdown.evidenceCount} evidence item(s) (+{breakdown.volumeContribution}, capped at 70) and{' '}
+      {breakdown.uniqueSourceCategoryCount} distinct source type(s) (+
+      {breakdown.diversityContribution} diversity bonus, capped at 20)
+      {breakdown.conflictCount > 0
+        ? `, minus ${breakdown.conflictPenalty} for ${breakdown.conflictCount} flagged conflict(s)`
+        : ''}{' '}
+      = {breakdown.score}%. This is a deterministic heuristic from countable evidence facts, not a
+      trained model's confidence.
+    </p>
+  );
+}
 
 export interface IntelligenceAnalysisPanelProps {
   analyses: IntelligenceAnalysis[];
@@ -48,10 +129,37 @@ export function IntelligenceAnalysisPanel({ analyses }: IntelligenceAnalysisPane
               <ConfidenceMeter
                 label="Evidence completeness"
                 value={analysis.evidenceCompleteness}
+                explanation={
+                  <EvidenceCompletenessExplanation
+                    breakdown={analysis.confidenceBreakdown.evidenceCompleteness}
+                  />
+                }
               />
-              <ConfidenceMeter label="Source reliability" value={analysis.sourceReliability} />
-              <ConfidenceMeter label="Data freshness" value={analysis.dataFreshness} />
-              <ConfidenceMeter label="AI certainty" value={analysis.aiCertainty} />
+              <ConfidenceMeter
+                label="Source reliability"
+                value={analysis.sourceReliability}
+                explanation={
+                  <SourceReliabilityExplanation
+                    breakdown={analysis.confidenceBreakdown.sourceReliability}
+                  />
+                }
+              />
+              <ConfidenceMeter
+                label="Data freshness"
+                value={analysis.dataFreshness}
+                explanation={
+                  <DataFreshnessExplanation
+                    breakdown={analysis.confidenceBreakdown.dataFreshness}
+                  />
+                }
+              />
+              <ConfidenceMeter
+                label="AI certainty"
+                value={analysis.aiCertainty}
+                explanation={
+                  <AiCertaintyExplanation breakdown={analysis.confidenceBreakdown.aiCertainty} />
+                }
+              />
             </div>
 
             <p className="text-sm font-medium text-foreground">{analysis.executiveSummary}</p>

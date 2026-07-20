@@ -1,4 +1,4 @@
-import { computeAiCertainty } from './ai-certainty';
+import { computeAiCertainty, explainAiCertainty } from './ai-certainty';
 
 describe('computeAiCertainty — deterministic heuristic (see ADR-0010)', () => {
   it('returns 0 with no evidence, no diversity, no conflicts', () => {
@@ -31,5 +31,25 @@ describe('computeAiCertainty — deterministic heuristic (see ADR-0010)', () => 
 
   it('never exceeds 100', () => {
     expect(computeAiCertainty(100, 100, 0)).toBe(90); // 70 + 20, still capped well under 100
+  });
+});
+
+describe('explainAiCertainty', () => {
+  it('breaks the score down into its three named contributions, matching computeAiCertainty exactly', () => {
+    const breakdown = explainAiCertainty(4, 2, 1);
+
+    expect(breakdown.score).toBe(computeAiCertainty(4, 2, 1));
+    expect(breakdown.evidenceCount).toBe(4);
+    expect(breakdown.uniqueSourceCategoryCount).toBe(2);
+    expect(breakdown.conflictCount).toBe(1);
+    expect(breakdown.volumeContribution).toBe(60); // 4 * 15
+    expect(breakdown.diversityContribution).toBe(14); // 2 * 7
+    expect(breakdown.conflictPenalty).toBe(15); // 1 * 15
+  });
+
+  it('reports the volume/diversity caps in the breakdown, not just the raw multiplication', () => {
+    const breakdown = explainAiCertainty(10, 10, 0);
+    expect(breakdown.volumeContribution).toBe(70); // capped, not 150
+    expect(breakdown.diversityContribution).toBe(20); // capped, not 70
   });
 });

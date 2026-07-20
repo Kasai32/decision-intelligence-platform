@@ -153,6 +153,58 @@ export interface SubmitIntelligenceAnalysisInput {
   executiveSummary: string;
 }
 
+export type EvidenceSourceCategory =
+  'MONITORING' | 'CLOUD_PROVIDER' | 'LOG_AGGREGATOR' | 'TICKETING' | 'CHAT' | 'HUMAN' | 'OTHER';
+
+/** The auditable "show your work" trace behind an evidenceCompleteness score — see ADR-0019. */
+export interface EvidenceCompletenessBreakdown {
+  requiredSources: EvidenceSourceCategory[];
+  presentRequiredSources: EvidenceSourceCategory[];
+  missingRequiredSources: EvidenceSourceCategory[];
+  score: number;
+}
+
+export interface EvidenceReliabilityContribution {
+  evidenceId: string;
+  source: string;
+  sourceCategory: EvidenceSourceCategory;
+  reliability: number;
+}
+
+/** The auditable "show your work" trace behind a sourceReliability score — see ADR-0019. */
+export interface SourceReliabilityBreakdown {
+  perEvidence: EvidenceReliabilityContribution[];
+  score: number;
+}
+
+/** The auditable "show your work" trace behind a dataFreshness score — see ADR-0019. */
+export interface DataFreshnessBreakdown {
+  mostRecentEvidenceId: string | null;
+  mostRecentEvidenceAt: string | null;
+  minutesSinceMostRecent: number | null;
+  severity: IncidentSeverity;
+  degradationFactorPerMinute: number;
+  score: number;
+}
+
+/** The auditable "show your work" trace behind an aiCertainty score — see ADR-0019. */
+export interface AiCertaintyBreakdown {
+  evidenceCount: number;
+  uniqueSourceCategoryCount: number;
+  conflictCount: number;
+  volumeContribution: number;
+  diversityContribution: number;
+  conflictPenalty: number;
+  score: number;
+}
+
+export interface ConfidenceBreakdown {
+  evidenceCompleteness: EvidenceCompletenessBreakdown;
+  sourceReliability: SourceReliabilityBreakdown;
+  dataFreshness: DataFreshnessBreakdown;
+  aiCertainty: AiCertaintyBreakdown;
+}
+
 /**
  * The persisted shape both POST /incidents/:id/analyze and
  * GET /incidents/:id/analyses return — mirrors the Prisma
@@ -160,7 +212,9 @@ export interface SubmitIntelligenceAnalysisInput {
  * are flat columns here (`evidenceCompleteness` etc.), not a nested
  * `confidenceDimensions` object. (The two endpoints used to disagree on
  * this — POST returned the nested AI Output Contract shape — fixed
- * 2026-07-20, see DECISION_LOG.md.)
+ * 2026-07-20, see DECISION_LOG.md.) `confidenceBreakdown` is always present
+ * (see ADR-0019) — never fetched separately, so the score and its
+ * explanation can never silently drift apart in the UI.
  */
 export interface IntelligenceAnalysis extends SubmitIntelligenceAnalysisInput {
   id: string;
@@ -172,6 +226,7 @@ export interface IntelligenceAnalysis extends SubmitIntelligenceAnalysisInput {
   sourceReliability: number;
   dataFreshness: number;
   aiCertainty: number;
+  confidenceBreakdown: ConfidenceBreakdown;
   submittedByUserId: string;
   createdAt: string;
 }
