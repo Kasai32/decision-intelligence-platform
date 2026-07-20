@@ -623,3 +623,15 @@ infra/          — Docker, CI/CD-adjacent infra config
 **Status:** Done, verified live: ran the real app against the real Postgres, confirmed `curl -D-` on `/health` now shows a full strict CSP (previously absent entirely) with all other helmet headers intact, confirmed `/api/v1/docs` returns `200` with a working Swagger UI (page loads, all JS/CSS assets resolve) under the permissive-but-explicit override, and confirmed the override doesn't leak to other routes. All 188 `apps/api` unit tests unaffected.
 
 ---
+
+## 2026-07-20 — GET /incidents/:id/decisions: a real endpoint, closing a self-noted gap
+
+**Context:** `memory/context.md`'s open-questions list had flagged this since the Reporting frontend surface was built: `apps/web`'s `DecisionReportsPanel`/`DecisionOutcomePanel` had no dedicated "list decisions for an incident" endpoint to call, so `ReportsPanel` derived the list by regex-matching `DECISION_OPENED` timeline event descriptions back into `{ id, question }` pairs — noted at the time as a workaround, not a design choice.
+
+**Decision:** Added `IncidentsService.getDecisions(tenantId, incidentId)` (tenant-scoped existence check via the same `getIncidentOrThrow` helper every other incident sub-resource method uses, then `prisma.decision.findMany({ where: { tenantId, incidentId }, orderBy: { createdAt: 'asc' } })`) and `GET /incidents/:id/decisions` on `IncidentsController`, mirroring the existing `:id/timeline` route exactly. `apps/web`'s `ReportsPanel` now self-fetches from this endpoint in a `useEffect` (the same pattern `ExecutiveBriefsPanel`/`LessonsLearnedPanel` already use) instead of deriving decisions from `timeline` — the regex-parsing function and the `timeline` prop it depended on are both deleted.
+
+**Rationale:** A real, indexed, tenant-scoped query is strictly more correct than parsing human-readable timeline text back into structured data (fragile if the description wording ever changes) and is the same one-line pattern every other incident sub-resource already follows — no new module, no new DTO, no new Prisma model.
+
+**Status:** Done, verified live end-to-end (not just mocked): ran the real app against the real Postgres, registered a tenant, opened two decisions on one incident, and confirmed `GET /incidents/:id/decisions` returns both in the order opened. Added `apps/api/test/incident-decisions.e2e-spec.ts` (2 tests: ordering, and a cross-tenant 404 proof matching this project's tenant-isolation e2e standard) — all 7 e2e suites (13 tests) pass against a real testcontainers Postgres. `IncidentsService.getDecisions` unit-tested (2 new tests: happy path with exact Prisma call assertions, not-found-for-wrong-tenant). `ReportsPanel.test.tsx` updated to mock the new endpoint instead of a timeline fixture. 190 `apps/api` unit tests + 47 `apps/web` unit tests, `lint`/`build`/`format` all clean.
+
+---

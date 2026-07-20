@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import type { TimelineEvent } from '@dip/shared';
+import type { Decision } from '@dip/shared';
 import { ReportsPanel } from '../components/ReportsPanel';
 import { apiClient, ApiError } from '../lib/api-client';
 
@@ -15,44 +15,41 @@ jest.mock('../lib/api-client', () => ({
   },
 }));
 
-const timeline: TimelineEvent[] = [
+const decisions: Decision[] = [
   {
-    id: 'e1',
+    id: 'decision-1',
     tenantId: 't1',
     incidentId: 'incident-1',
-    decisionId: null,
-    type: 'INCIDENT_CREATED',
-    description: 'Incident "Payments outage" created',
-    actorUserId: 'u1',
-    metadata: null,
-    occurredAt: '2026-07-19T12:00:00.000Z',
-  },
-  {
-    id: 'e2',
-    tenantId: 't1',
-    incidentId: 'incident-1',
-    decisionId: 'decision-1',
-    type: 'DECISION_OPENED',
-    description: 'Decision opened: "Roll back the deploy?"',
-    actorUserId: 'u1',
-    metadata: null,
-    occurredAt: '2026-07-19T12:01:00.000Z',
+    question: 'Roll back the deploy?',
+    status: 'OPEN',
+    humanDecision: null,
+    rationale: null,
+    decidedByUserId: null,
+    decidedAt: null,
+    createdByUserId: 'u1',
+    createdAt: '2026-07-19T12:01:00.000Z',
+    updatedAt: '2026-07-19T12:01:00.000Z',
   },
 ];
 
-describe('ReportsPanel (derives decisions from the timeline — no new list-decisions endpoint)', () => {
+describe('ReportsPanel (fetches decisions from GET /incidents/:id/decisions)', () => {
   beforeEach(() => {
-    (apiClient.get as jest.Mock).mockImplementation((path: string) =>
-      path.endsWith('/outcome')
-        ? Promise.reject(new ApiError(404, 'No outcome recorded for this decision'))
-        : Promise.resolve([]),
-    );
+    (apiClient.get as jest.Mock).mockImplementation((path: string) => {
+      if (path === '/incidents/incident-1/decisions') return Promise.resolve(decisions);
+      if (path.endsWith('/outcome')) {
+        return Promise.reject(new ApiError(404, 'No outcome recorded for this decision'));
+      }
+      return Promise.resolve([]);
+    });
   });
 
-  it('extracts the decision question from the DECISION_OPENED event description', async () => {
-    render(<ReportsPanel incidentId="incident-1" incidentStatus="OPEN" timeline={timeline} />);
+  it('fetches decisions for the incident and passes them to the child panels', async () => {
+    render(<ReportsPanel incidentId="incident-1" incidentStatus="OPEN" />);
 
     expect(await screen.findAllByText('Roll back the deploy?')).toHaveLength(2); // Decision Reports panel + Decision Outcomes panel
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/incidents/incident-1/decisions');
+    });
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith('/decisions/decision-1/reports');
     });

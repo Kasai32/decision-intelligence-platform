@@ -91,6 +91,14 @@ export class IncidentsService {
     });
   }
 
+  async getDecisions(tenantId: string, incidentId: string): Promise<Decision[]> {
+    await this.getIncidentOrThrow(tenantId, incidentId);
+    return this.prisma.decision.findMany({
+      where: { tenantId, incidentId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   /**
    * Shapes the Executive Command Center payload per ADR-0009 (amended by
    * ADR-0013): never a bare incident with no decision context — always

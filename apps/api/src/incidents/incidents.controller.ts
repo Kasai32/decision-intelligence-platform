@@ -39,6 +39,11 @@ export class IncidentsController {
     return this.incidentsService.getTimeline(user.tenantId, id);
   }
 
+  @Get(':id/decisions')
+  getDecisions(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.incidentsService.getDecisions(user.tenantId, id);
+  }
+
   @Patch(':id/status')
   updateStatus(
     @CurrentUser() user: AuthenticatedUser,

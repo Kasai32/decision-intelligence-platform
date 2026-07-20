@@ -18,9 +18,7 @@ export interface DecisionReportsPanelProps {
 
 /**
  * Per-decision immutable report snapshots (Phase 5, see ADR-0011). `decisions`
- * is derived by the caller from the incident's timeline (every `Decision` was
- * opened via a `DECISION_OPENED` `TimelineEvent`, carrying `decisionId` — no
- * new `apps/api` "list decisions for incident" endpoint was needed for this).
+ * is fetched by the caller from `GET /incidents/:id/decisions`.
  */
 export function DecisionReportsPanel({ decisions }: DecisionReportsPanelProps) {
   const [reportsByDecision, setReportsByDecision] = useState<Record<string, DecisionReport[]>>({});

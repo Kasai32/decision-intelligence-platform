@@ -257,7 +257,6 @@ export default function CommandCenterPage() {
                     <ReportsPanel
                       incidentId={selectedIncident.id}
                       incidentStatus={selectedIncident.status}
-                      timeline={timeline ?? []}
                     />
                   </TabsContent>
                 </Tabs>

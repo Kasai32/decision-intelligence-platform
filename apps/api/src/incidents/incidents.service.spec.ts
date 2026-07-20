@@ -118,4 +118,32 @@ describe('IncidentsService', () => {
       expect(summary.lastDecision).toBeNull();
     });
   });
+
+  describe('getDecisions', () => {
+    it('returns every decision for the incident, oldest first, tenant-scoped', async () => {
+      prisma.incident.findFirst.mockResolvedValue({ id: 'i1', tenantId: 't1' });
+      prisma.decision.findMany.mockResolvedValue([
+        { id: 'd1', question: 'Isolate the network?' },
+        { id: 'd2', question: 'Communicate publicly?' },
+      ]);
+
+      const decisions = await service.getDecisions('t1', 'i1');
+
+      expect(prisma.incident.findFirst).toHaveBeenCalledWith({
+        where: { id: 'i1', tenantId: 't1' },
+      });
+      expect(prisma.decision.findMany).toHaveBeenCalledWith({
+        where: { tenantId: 't1', incidentId: 'i1' },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(decisions.map((d) => d.id)).toEqual(['d1', 'd2']);
+    });
+
+    it('throws NotFoundException for an incident outside the tenant', async () => {
+      prisma.incident.findFirst.mockResolvedValue(null);
+
+      await expect(service.getDecisions('t1', 'missing')).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.decision.findMany).not.toHaveBeenCalled();
+    });
+  });
 });
