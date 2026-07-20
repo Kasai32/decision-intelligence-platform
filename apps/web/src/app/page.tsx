@@ -143,10 +143,16 @@ export default function CommandCenterPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <div className="h-px bg-gradient-to-r from-primary/70 via-primary/20 to-transparent" />
       <header className="flex items-center justify-between border-b border-border px-6 py-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Radar className="h-5 w-5 text-primary" />
-          <h1 className="text-lg font-semibold tracking-tight">Executive Command Center</h1>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-kicker text-muted-foreground">
+              Decision Intelligence Platform
+            </span>
+            <h1 className="text-lg font-semibold tracking-tight">Executive Command Center</h1>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
@@ -180,7 +186,7 @@ export default function CommandCenterPage() {
         <div className="flex flex-1">
           <nav
             aria-label="Incidents"
-            className="w-80 shrink-0 overflow-y-auto border-r border-border p-3"
+            className="w-80 shrink-0 overflow-y-auto border-r border-border bg-black/25 p-3"
           >
             <ul className="flex flex-col gap-2">
               {incidents.map((incident) => (
@@ -190,9 +196,12 @@ export default function CommandCenterPage() {
                     onClick={() => setSelectedIncidentId(incident.id)}
                     aria-current={incident.id === selectedIncidentId}
                     className={cn(
-                      'w-full rounded-md border-l-4 bg-card p-3 text-left transition-colors hover:bg-accent',
+                      'w-full rounded border border-border border-l-4 bg-card p-3 text-left shadow-sm ' +
+                        'transition-colors hover:border-ring/50 hover:bg-accent',
                       severityBorderClass(incident.severity),
-                      incident.id === selectedIncidentId ? 'ring-2 ring-ring' : '',
+                      incident.id === selectedIncidentId
+                        ? 'border-ring bg-accent ring-1 ring-ring'
+                        : '',
                     )}
                   >
                     <p className="truncate text-sm font-medium text-foreground">{incident.title}</p>

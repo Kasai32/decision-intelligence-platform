@@ -1,36 +1,43 @@
 @import 'tailwindcss';
 
 /*
- * Dark-only "command center" theme (see ADR-0014). No .dark class, no
+ * Dark-only "command center" theme (see ADR-0014, refined 2026-07-20 toward
+ * a data-ops/console visual language — restrained graphite + a single
+ * precise teal accent, sharp geometry, monospace used deliberately for
+ * technical content, never a decorative gimmick). No .dark class, no
  * prefers-color-scheme branch, no toggle — this product's identity is dark,
  * not a preference. Every token below is a single source of truth consumed
  * by the CVA-based primitives in src/components/ui/.
  */
 @theme {
-  --color-background: #05070d;
-  --color-foreground: #e2e8f0;
+  /* A real elevation ladder (background < card < secondary/accent), not a
+   * near-black wash — modeled on how GitHub/Linear/Vercel actually do dark
+   * mode: never pure/near black, each surface step clearly lighter than
+   * the one below so hierarchy reads without straining. */
+  --color-background: #101114;
+  --color-foreground: #f2f2f4;
 
-  --color-card: #0d121c;
-  --color-card-foreground: #e2e8f0;
+  --color-card: #1c1e23;
+  --color-card-foreground: #f2f2f4;
 
-  --color-popover: #0d121c;
-  --color-popover-foreground: #e2e8f0;
+  --color-popover: #1c1e23;
+  --color-popover-foreground: #f2f2f4;
 
-  --color-border: #1e293b;
-  --color-input: #1e293b;
-  --color-ring: #38bdf8;
+  --color-border: #34363c;
+  --color-input: #34363c;
+  --color-ring: #2fb8c4;
 
-  --color-primary: #38bdf8;
-  --color-primary-foreground: #04121b;
+  --color-primary: #2fb8c4;
+  --color-primary-foreground: #04191b;
 
-  --color-secondary: #1e293b;
-  --color-secondary-foreground: #e2e8f0;
+  --color-secondary: #24262b;
+  --color-secondary-foreground: #f2f2f4;
 
-  --color-muted: #131a26;
-  --color-muted-foreground: #94a3b8;
+  --color-muted: #202226;
+  --color-muted-foreground: #b4b5bd;
 
-  --color-accent: #1e293b;
-  --color-accent-foreground: #e2e8f0;
+  --color-accent: #282a30;
+  --color-accent-foreground: #f2f2f4;
 
   --color-destructive: #ef4444;
   --color-destructive-foreground: #fef2f2;
@@ -39,7 +46,9 @@
   --color-success-foreground: #04120a;
 
   /* Severity color coding (ADR-0014) — used consistently for incident
-     severity everywhere: list borders, badges, decision cards. */
+     severity everywhere: list borders, badges, decision cards. Distinct
+     hues from --color-primary on purpose, so severity never gets confused
+     with a plain interactive accent. */
   --color-critical: #ef4444;
   --color-critical-foreground: #fef2f2;
   --color-high: #f97316;
@@ -55,10 +64,10 @@
   --color-countdown-danger: #ef4444;
   --color-countdown-overdue: #dc2626;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-  --radius: 0.5rem;
+  --radius: 0.25rem;
 }
 
 @layer base {
@@ -70,11 +79,32 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
+    /* A faint top vignette only — the earlier grid-line texture read as
+       visual noise competing with text, cut in favor of legibility. Fixed
+       so it doesn't scroll with content. */
+    background-image: linear-gradient(to bottom, rgb(47 184 196 / 0.04), transparent 420px);
+    background-size: 100% 420px;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
   }
 
   * {
     border-color: var(--color-border);
+  }
+}
+
+@layer utilities {
+  /* Small technical/status labels — section kickers, badge text, metric
+     labels. Never used for prose or anything a reader needs to skim
+     quickly, since all-caps tracked text is deliberately slower to read. */
+  .text-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 }
 
