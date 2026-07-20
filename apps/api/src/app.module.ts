@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ActionsModule } from './actions/actions.module';
+import { AuditLogModule } from './audit-log/audit-log.module';
 import { AuthModule } from './auth/auth.module';
 import { DecisionIntelligenceModule } from './decision-intelligence/decision-intelligence.module';
 import { DecisionOutcomesModule } from './decision-outcomes/decision-outcomes.module';
@@ -10,6 +11,7 @@ import { DecisionReportsModule } from './decision-reports/decision-reports.modul
 import { DecisionsModule } from './decisions/decisions.module';
 import { LoggerModule } from './common/logging/logger.module';
 import { TenantRlsInterceptor } from './common/interceptors/tenant-rls.interceptor';
+import { EntitiesModule } from './entities/entities.module';
 import { EvidenceModule } from './evidence/evidence.module';
 import { ExecutiveBriefsModule } from './executive-briefs/executive-briefs.module';
 import { HealthModule } from './health/health.module';
@@ -17,6 +19,7 @@ import { IncidentsModule } from './incidents/incidents.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { LessonsLearnedModule } from './lessons-learned/lessons-learned.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RelationshipsModule } from './relationships/relationships.module';
 import { SimulationModule } from './simulation/simulation.module';
 import { TenantsModule } from './tenants/tenants.module';
 
@@ -41,6 +44,9 @@ import { TenantsModule } from './tenants/tenants.module';
     DecisionReportsModule,
     LessonsLearnedModule,
     SimulationModule,
+    AuditLogModule,
+    EntitiesModule,
+    RelationshipsModule,
     HealthModule,
   ],
   providers: [

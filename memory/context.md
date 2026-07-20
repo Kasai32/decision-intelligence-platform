@@ -2,6 +2,14 @@
 
 Last updated: 2026-07-20.
 
+## Mission pivot (2026-07-20) — read this before assuming the project is "done"
+
+The user set new direction beyond the original incident-response roadmap: this platform's actual mission is **government intelligence analysis** — pulling together data from many sources, finding hidden connections between people/organizations/locations/events, visualizing those relationships, and helping analysts make faster, better decisions. Explicitly compared to Palantir Gotham in _capability_ (data integration, link analysis, geospatial analysis, secure analyst collaboration), but the stated core mission is the opposite of Gotham's real-world reputation: make analysts faster and smarter **while protecting civil liberties by keeping a human analyst in control, not automated surveillance**.
+
+This is not a scrapped direction — it's additive. Every principle already built here (Principle 1 — no automation decides alone, ADR-0007; the confidence-explainability standard, ADR-0019; RLS-based tenant isolation, ADR-0015) is exactly the discipline this mission needs, just extended from incident response to intelligence analysis. See [ADR-0021](../docs/adr/0021-entity-relationship-graph-and-audit-log.md) for the first concrete step: a real entity-relationship graph plus an analyst-activity audit log. The four capability pillars named by the user (data integration / link analysis / geospatial analysis / secure collaboration) are the roadmap going forward — link analysis is underway; data integration, geospatial, and collaboration are not started.
+
+The user also raised using an **open-weight (self-hostable) LLM** instead of / alongside the Anthropic API — motivated by data sovereignty for sensitive government data, not just cost. `LlmClient` (ADR-0018) was deliberately built provider-agnostic for exactly this kind of swap; a self-hosted model served via Ollama/vLLM is the natural next `LlmClient` implementation, not yet built.
+
 ## Current phase
 
 **All six PREREQUIS.md phases are complete**, per [PREREQUIS.md](../PREREQUIS.md). Phases 1–5 (`e197079`, `5599746`, `a826545`, `cccc655`, `29c7e55`) and Phase 6 — Enterprise Integrations (resilience engine + per-tenant encrypted configuration, [ADR-0012](../docs/adr/0012-integration-resilience-and-tenant-config.md)) form the working MVP. See [DECISION_LOG.md](../DECISION_LOG.md) for the full record.
@@ -105,7 +113,20 @@ This repository is being built by an AI agent (Claude Code) operating autonomous
 - The streaming endpoint's HTTP status is only a reliable failure signal for the zero-I/O `available` check (a clean 503) — any failure requiring a DB read first (e.g. incident not found) reliably loses Nest's SSE header-commit race and reports via an in-stream `error` event instead of a 404. Both work correctly from the frontend's perspective; only the exact status code differs.
 - The Command Center polls the selected incident every 8s in the background (`LIVE_REFRESH_INTERVAL_MS` in `page.tsx`) — no websockets yet, deferred until real scale justifies it.
 
+## Decisions made in the entity-relationship graph + audit log phase (see DECISION_LOG.md / ADR-0021 for full rationale)
+
+- Every `Entity` and `Relationship` must cite the real `Evidence` it came from at creation — enforced in `EntitiesService`/`RelationshipsService`, not just documented.
+- A `Relationship` always starts `SUGGESTED`; reaching `CONFIRMED` requires both a real state transition (`relationship.state-machine.ts`) and at least one evidence citation — citing evidence when _proposing_ a link is not the same act as a human _confirming_ it.
+- `AuditLogEntry` is append-only (no update/delete anywhere) and requires a stated `reason` for `SEARCH`/`VIEW_ENTITY`/`VIEW_GRAPH` — enforced at the DTO layer (400 without one), not optional. `GET /audit-log` is `@Roles(Role.ADMIN)`-gated.
+- No frontend exists yet for entities/relationships/audit-log review — `packages/shared` has the types, `apps/web` has no pages. Next natural step once UI work resumes on this track.
+
 ## Open questions for later work
+
+- **The four intelligence-mission pillars beyond link analysis (data integration, geospatial analysis, secure collaboration) have no architecture yet** — link analysis (entities/relationships/audit log) is the only one started (ADR-0021).
+- **An open-weight/self-hosted `LlmClient` implementation** (Ollama/vLLM) — motivated by data sovereignty for sensitive government data, not yet built; the seam (ADR-0018) is ready for it.
+- **No frontend for the entity-relationship graph or the audit log review page** — graph visualization (nodes/edges), an entity search UI, and an ADMIN-facing audit-log viewer are all unbuilt.
+- **`getGraph()` is one-hop only** — no recursive N-hop traversal yet; fine for a v1 with no UI to explore deeper graphs anyway.
+- **No dedicated "auditor/compliance" role** — audit-log review currently reuses the existing `ADMIN` role rather than a role that can review but not modify data (separation of duties); deferred until real usage shows whether that distinction matters in practice.
 
 - Hosting/deployment target (needed before CI/CD can deploy anything, not just build/test it).
 - Email delivery provider (needed for real invite/password-reset flows).

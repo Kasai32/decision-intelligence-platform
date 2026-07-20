@@ -23,17 +23,21 @@ model Tenant {
   updatedAt DateTime     @updatedAt
   members   Membership[]
 
-  incidents            Incident[]
-  decisions            Decision[]
-  evidence             Evidence[]
-  timelineEvents       TimelineEvent[]
-  actions              Action[]
-  intelligenceAnalyses IntelligenceAnalysis[]
-  executiveBriefs      ExecutiveBrief[]
-  decisionReports      DecisionReport[]
-  lessonsLearned       LessonLearned[]
-  integrationConfigs   IntegrationConfig[]
-  decisionOutcomes     DecisionOutcome[]
+  incidents              Incident[]
+  decisions              Decision[]
+  evidence               Evidence[]
+  timelineEvents         TimelineEvent[]
+  actions                Action[]
+  intelligenceAnalyses   IntelligenceAnalysis[]
+  executiveBriefs        ExecutiveBrief[]
+  decisionReports        DecisionReport[]
+  lessonsLearned         LessonLearned[]
+  integrationConfigs     IntegrationConfig[]
+  decisionOutcomes       DecisionOutcome[]
+  entities               Entity[]
+  relationships          Relationship[]
+  entityMergeSuggestions EntityMergeSuggestion[]
+  auditLogEntries        AuditLogEntry[]
 
   @@map("tenants")
 }
@@ -50,17 +54,20 @@ model User {
   memberships   Membership[]
   refreshTokens RefreshToken[]
 
-  createdIncidents  Incident[]             @relation("IncidentCreatedBy")
-  createdDecisions  Decision[]             @relation("DecisionCreatedBy")
-  decidedDecisions  Decision[]             @relation("DecisionDecidedBy")
-  submittedEvidence Evidence[]             @relation("EvidenceSubmittedBy")
-  timelineActions   TimelineEvent[]        @relation("TimelineEventActor")
-  assignedActions   Action[]               @relation("ActionAssignedTo")
-  submittedAnalyses IntelligenceAnalysis[] @relation("IntelligenceAnalysisSubmittedBy")
-  generatedBriefs   ExecutiveBrief[]       @relation("ExecutiveBriefGeneratedBy")
-  generatedReports  DecisionReport[]       @relation("DecisionReportGeneratedBy")
-  createdLessons    LessonLearned[]        @relation("LessonLearnedCreatedBy")
-  recordedOutcomes  DecisionOutcome[]      @relation("DecisionOutcomeRecordedBy")
+  createdIncidents         Incident[]              @relation("IncidentCreatedBy")
+  createdDecisions         Decision[]              @relation("DecisionCreatedBy")
+  decidedDecisions         Decision[]              @relation("DecisionDecidedBy")
+  submittedEvidence        Evidence[]              @relation("EvidenceSubmittedBy")
+  timelineActions          TimelineEvent[]         @relation("TimelineEventActor")
+  assignedActions          Action[]                @relation("ActionAssignedTo")
+  submittedAnalyses        IntelligenceAnalysis[]  @relation("IntelligenceAnalysisSubmittedBy")
+  generatedBriefs          ExecutiveBrief[]        @relation("ExecutiveBriefGeneratedBy")
+  generatedReports         DecisionReport[]        @relation("DecisionReportGeneratedBy")
+  createdLessons           LessonLearned[]         @relation("LessonLearnedCreatedBy")
+  recordedOutcomes         DecisionOutcome[]       @relation("DecisionOutcomeRecordedBy")
+  confirmedRelationships   Relationship[]          @relation("RelationshipConfirmedBy")
+  reviewedMergeSuggestions EntityMergeSuggestion[] @relation("MergeSuggestionReviewedBy")
+  auditLogEntries          AuditLogEntry[]         @relation("AuditLogActor")
 
   @@map("users")
 }
@@ -272,6 +279,9 @@ model Evidence {
   submittedByUserId String?
   submittedBy       User?    @relation("EvidenceSubmittedBy", fields: [submittedByUserId], references: [id])
   createdAt         DateTime @default(now())
+
+  entityEvidenceLinks       EntityEvidenceLink[]
+  relationshipEvidenceLinks RelationshipEvidenceLink[]
 
   @@index([tenantId])
   @@index([incidentId])
@@ -569,4 +579,226 @@ model IntegrationConfig {
   @@unique([tenantId, providerType])
   @@index([tenantId])
   @@map("integration_configs")
+}
+
+// ---------------------------------------------------------------------------
+// Entity-relationship intelligence graph + analyst-activity audit log
+// (see ADR-0021). Every entity and relationship must trace back to real
+// Evidence — "never a bare assertion", the same rule the confidence
+// breakdowns (ADR-0019) already follow. Every relationship a human hasn't
+// explicitly confirmed stays SUGGESTED — Principle 1 (ADR-0007) extended
+// from decisions to connections between people, orgs, locations, events.
+// ---------------------------------------------------------------------------
+
+enum EntityType {
+  PERSON
+  ORGANIZATION
+  LOCATION
+  EVENT
+  OTHER
+}
+
+/// A person, organization, location, or event an analyst is tracking.
+/// Accumulates across incidents over time — not scoped to a single one.
+model Entity {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  type       EntityType
+  name       String
+  /// Known alternate names/spellings — raw material for merge suggestions
+  /// below, never auto-applied.
+  aliases    String[]
+  /// Type-specific fields (DOB, registration number, coordinates...).
+  /// Deliberately flexible rather than a rigid per-type schema this early.
+  attributes Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  evidenceLinks       EntityEvidenceLink[]
+  relationshipsFrom   Relationship[]          @relation("RelationshipFrom")
+  relationshipsTo     Relationship[]          @relation("RelationshipTo")
+  mergeSuggestionsAsA EntityMergeSuggestion[] @relation("MergeSuggestionEntityA")
+  mergeSuggestionsAsB EntityMergeSuggestion[] @relation("MergeSuggestionEntityB")
+
+  @@index([tenantId, type])
+  @@map("entities")
+}
+
+enum RelationshipType {
+  ASSOCIATED_WITH
+  EMPLOYED_BY
+  MEMBER_OF
+  LOCATED_AT
+  PRESENT_AT
+  COMMUNICATED_WITH
+  TRANSACTED_WITH
+  OWNS
+  OTHER
+}
+
+enum RelationshipStatus {
+  /// System/pattern-detected — never treated as fact until a human reviews it.
+  SUGGESTED
+  /// A named human confirmed it (see confirmedByUserId).
+  CONFIRMED
+  /// A human reviewed and said no — kept, not deleted (Principle 3: never
+  /// hidden by omission; a rejected hypothesis is still part of the record).
+  REJECTED
+}
+
+/// A directed edge between two entities. Can only reach CONFIRMED once it
+/// has at least one RelationshipEvidenceLink — enforced in
+/// RelationshipsService, not just documented here.
+model Relationship {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  fromEntityId String
+  fromEntity   Entity @relation("RelationshipFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
+  toEntityId   String
+  toEntity     Entity @relation("RelationshipTo", fields: [toEntityId], references: [id], onDelete: Cascade)
+
+  type   RelationshipType
+  /// Free-text specifics when `type` alone doesn't capture the relationship.
+  label  String?
+  status RelationshipStatus @default(SUGGESTED)
+
+  confirmedByUserId String?
+  confirmedBy       User?     @relation("RelationshipConfirmedBy", fields: [confirmedByUserId], references: [id])
+  confirmedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  evidenceLinks RelationshipEvidenceLink[]
+
+  @@index([tenantId, fromEntityId])
+  @@index([tenantId, toEntityId])
+  @@map("relationships")
+}
+
+/// The "why" behind an entity's existence — the specific evidence that
+/// named it. An entity with no evidence link should never exist in
+/// practice; enforced in EntitiesService, not just by this schema.
+model EntityEvidenceLink {
+  id       String @id @default(uuid())
+  tenantId String
+
+  entityId      String
+  entity        Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  evidenceId    String
+  evidence      Evidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  /// The specific snippet that named this entity, if known.
+  extractedText String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([entityId, evidenceId])
+  @@index([tenantId])
+  @@map("entity_evidence_links")
+}
+
+/// The "why" behind a relationship — the specific evidence that supports it.
+model RelationshipEvidenceLink {
+  id       String @id @default(uuid())
+  tenantId String
+
+  relationshipId String
+  relationship   Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  evidenceId     String
+  evidence       Evidence     @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([relationshipId, evidenceId])
+  @@index([tenantId])
+  @@map("relationship_evidence_links")
+}
+
+enum MergeSuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/// "Is J. Smith the same person as John Smith?" — the system suggests,
+/// it never auto-merges. Kept even when rejected, same reasoning as
+/// RelationshipStatus.REJECTED above.
+model EntityMergeSuggestion {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  entityAId String
+  entityA   Entity @relation("MergeSuggestionEntityA", fields: [entityAId], references: [id], onDelete: Cascade)
+  entityBId String
+  entityB   Entity @relation("MergeSuggestionEntityB", fields: [entityBId], references: [id], onDelete: Cascade)
+
+  /// Why the system thinks these might be the same entity — always shown,
+  /// never a bare "possible match".
+  reason String
+  status MergeSuggestionStatus @default(PENDING)
+
+  reviewedByUserId String?
+  reviewedBy       User?     @relation("MergeSuggestionReviewedBy", fields: [reviewedByUserId], references: [id])
+  reviewedAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("entity_merge_suggestions")
+}
+
+enum AuditAction {
+  SEARCH
+  VIEW_ENTITY
+  VIEW_RELATIONSHIP
+  VIEW_GRAPH
+  CREATE_ENTITY
+  CREATE_RELATIONSHIP
+  CONFIRM_RELATIONSHIP
+  REJECT_RELATIONSHIP
+  MERGE_ENTITIES
+  EXPORT
+}
+
+/// Append-only record of analyst activity against the intelligence graph —
+/// the concrete mechanism behind "protect civil liberties, human control,
+/// not automated surveillance" (see ADR-0021). This logs what the ANALYST
+/// did, not just what the system found: who looked up whom, when, and
+/// (for read actions on sensitive data) why. Never updated or deleted —
+/// no such endpoint exists, matching TimelineEvent's existing immutability.
+model AuditLogEntry {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  actorUserId String
+  actor       User        @relation("AuditLogActor", fields: [actorUserId], references: [id])
+  action      AuditAction
+
+  /// Free-text tag for the kind of record touched (e.g. "Entity",
+  /// "Relationship") — deliberately not a foreign key, since the target
+  /// may reference any of several tables (or none, for a SEARCH).
+  targetType String?
+  targetId   String?
+
+  /// Analyst-stated purpose — required for SEARCH/VIEW_* actions at the
+  /// service layer (purpose limitation), optional for actions that are
+  /// already self-documenting (e.g. CONFIRM_RELATIONSHIP already requires
+  /// an evidence citation).
+  reason   String?
+  /// Action-specific detail — search terms, graph traversal depth, export
+  /// format. Never used to store the underlying sensitive data itself.
+  metadata Json?
+
+  occurredAt DateTime @default(now())
+
+  @@index([tenantId, actorUserId, occurredAt])
+  @@index([tenantId, targetType, targetId])
+  @@map("audit_log_entries")
 }

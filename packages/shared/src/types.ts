@@ -398,3 +398,87 @@ export interface CalibrationReport {
   minimumSampleSizeThreshold: number;
   dimensions: DimensionCalibration[];
 }
+
+// ---------------------------------------------------------------------------
+// Entity-relationship intelligence graph + analyst-activity audit log
+// (see ADR-0021). Type-only additions mirroring apps/api's Prisma models;
+// no frontend surface built yet — these document the wire contract ahead
+// of it, same pattern as the confidence-breakdown types (ADR-0019).
+// ---------------------------------------------------------------------------
+
+export type EntityType = 'PERSON' | 'ORGANIZATION' | 'LOCATION' | 'EVENT' | 'OTHER';
+
+export interface Entity {
+  id: string;
+  tenantId: string;
+  type: EntityType;
+  name: string;
+  aliases: string[];
+  attributes: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RelationshipType =
+  | 'ASSOCIATED_WITH'
+  | 'EMPLOYED_BY'
+  | 'MEMBER_OF'
+  | 'LOCATED_AT'
+  | 'PRESENT_AT'
+  | 'COMMUNICATED_WITH'
+  | 'TRANSACTED_WITH'
+  | 'OWNS'
+  | 'OTHER';
+
+/** SUGGESTED until a named human confirms it — never auto-treated as fact (Principle 1). */
+export type RelationshipStatus = 'SUGGESTED' | 'CONFIRMED' | 'REJECTED';
+
+export interface Relationship {
+  id: string;
+  tenantId: string;
+  fromEntityId: string;
+  toEntityId: string;
+  type: RelationshipType;
+  label: string | null;
+  status: RelationshipStatus;
+  confirmedByUserId: string | null;
+  confirmedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** GET /entities/:id/graph — the entity plus every relationship it's a party to, with connected entities resolved. */
+export interface EntityGraph {
+  entity: Entity;
+  relationships: (Relationship & { fromEntity: Entity; toEntity: Entity })[];
+}
+
+export type AuditAction =
+  | 'SEARCH'
+  | 'VIEW_ENTITY'
+  | 'VIEW_RELATIONSHIP'
+  | 'VIEW_GRAPH'
+  | 'CREATE_ENTITY'
+  | 'CREATE_RELATIONSHIP'
+  | 'CONFIRM_RELATIONSHIP'
+  | 'REJECT_RELATIONSHIP'
+  | 'MERGE_ENTITIES'
+  | 'EXPORT';
+
+/**
+ * One row of the append-only analyst-activity log — the concrete
+ * mechanism behind "human analyst in control, not automated surveillance"
+ * (see ADR-0021). `reason` is required for SEARCH/VIEW_* actions
+ * (purpose limitation), enforced server-side, not just documented here.
+ */
+export interface AuditLogEntry {
+  id: string;
+  tenantId: string;
+  actorUserId: string;
+  action: AuditAction;
+  targetType: string | null;
+  targetId: string | null;
+  reason: string | null;
+  metadata: Record<string, unknown> | null;
+  occurredAt: string;
+}
