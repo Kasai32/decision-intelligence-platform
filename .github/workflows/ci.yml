@@ -14,7 +14,7 @@ jobs:
   lint-test-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -39,7 +39,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -63,7 +63,7 @@ jobs:
       # history, not actions/checkout@v4's default shallow (depth 1) clone.
       # A shallow clone made it fail with "unknown revision" on any push of
       # more than a single commit.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
