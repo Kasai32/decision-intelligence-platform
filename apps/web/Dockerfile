@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS base
+FROM node:26-alpine AS base
 WORKDIR /repo
 
 FROM base AS deps
@@ -15,7 +15,7 @@ COPY apps/web apps/web
 COPY packages/shared packages/shared
 RUN npm run build --workspace apps/web
 
-FROM node:20-alpine AS runtime
+FROM node:26-alpine AS runtime
 WORKDIR /repo
 ENV NODE_ENV=production
 COPY --from=deps /repo/node_modules node_modules
